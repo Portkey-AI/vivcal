@@ -4,7 +4,7 @@
 
 1. Clone Vivcal locally (Assumes you have node and npm installed)
 ```
-git clone https://github.com/portkey-ai/vivcal.git
+git clone https://github.com/Portkey-AI/vivcal.git
 cd vivcal
 npm i
 ```

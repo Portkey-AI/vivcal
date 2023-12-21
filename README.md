@@ -1,3 +1,5 @@
+![](VivCal.png)
+
 ## How to use vivcal?
 
 1. Clone Vivcal locally (Assumes you have node and npm installed)

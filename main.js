@@ -22,7 +22,8 @@ function showNotification(title, message, url, eventId) {
     body: url ? "Click to join": "No meeting link found",
     actions: [{ text: 'Join Meeting', type: 'button' }],
     closeButtonText: 'Dismiss',
-    urgency: "critical"
+    urgency: "critical",
+    sound: 'Submarine'
   });
 
   notification.on('show', () => {

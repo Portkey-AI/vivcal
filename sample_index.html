@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar App Preview</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    header {
+      background-color: #252525;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    #quit-icon {
+      color: #e0e0e0;
+      font-size: 16px;
+      cursor: pointer;
+      transition: color 0.3s ease;
+    }
+
+    #quit-icon:hover {
+      color: #e74c3c;
+    }
+
+    #events-list {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 8px;
+      padding: 0 10px;
+    }
+
+    .date-heading {
+      background-color: #444;
+      color: #e0e0e0;
+      font-weight: 600;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+    }
+
+    .event-row {
+      background-color: #252525;
+      transition: background-color 0.3s ease;
+    }
+
+    .event-row:hover {
+      background-color: #2a2a2a;
+    }
+
+    .event-row td {
+      padding: 12px 10px;
+    }
+
+    .event-row td:first-child {
+      border-top-left-radius: 6px;
+      border-bottom-left-radius: 6px;
+    }
+
+    .event-row td:last-child {
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
+    }
+
+    .time-col {
+      color: #9e9e9e;
+      width: 90px;
+    }
+
+    .event-summary {
+      font-weight: 500;
+    }
+
+    .join-button {
+      background-color: #3474eb;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+
+    .join-button:hover {
+      background-color: #2461d6;
+    }
+
+    .join-button i {
+      margin-right: 5px;
+    }
+    </style>
+</head>
+<body>
+  <header>
+    <div class="app-title">Upcoming Meetings</div>
+    <i id="quit-icon" class="fas fa-power-off"></i>
+  </header>
+    <!-- <button id="quit-button">Quit</button> -->
+    <table id="events-list"></table>
+
+    <script>
+        // Sample data to mimic calendar events
+        const sampleEvents = [
+            {
+                id: '1',
+                summary: '😴',
+                start: { dateTime: '2024-08-30T00:30:00' },
+                end: { dateTime: '2024-08-30T08:00:00' },
+                hangoutLink: 'https://meet.google.com/abc-defg-hij'
+            },
+            {
+                id: '2',
+                summary: 'Flight to Doha (QR 573)',
+                start: { dateTime: '2024-08-30T03:55:00' },
+                end: { dateTime: '2024-08-30T08:10:00' }
+            },
+            {
+                id: '3',
+                summary: 'Avenash Kabeera and Rohit Agarwal',
+                start: { dateTime: '2024-08-30T10:00:00' },
+                end: { dateTime: '2024-08-30T10:30:00' },
+                hangoutLink: 'https://meet.google.com/abc-defg-hij'
+            },
+            {
+                id: '4',
+                summary: 'Daily Catchup',
+                start: { dateTime: '2024-08-30T10:30:00' },
+                end: { dateTime: '2024-08-30T11:00:00' },
+                hangoutLink: 'https://meet.google.com/abc-defg-hij'
+            },
+            {
+                id: '5',
+                summary: 'Flight to San Francisco (QR 737)',
+                start: { dateTime: '2024-08-30T10:45:00' },
+                end: { dateTime: '2024-08-31T02:20:00' }
+            },
+            {
+                id: '6',
+                summary: 'HPE Digital Catalyst Program <> Portkey AI_Demo session',
+                start: { dateTime: '2024-08-30T11:00:00' },
+                end: { dateTime: '2024-08-30T12:00:00' },
+                description: 'Join Microsoft Teams Meeting: https://teams.microsoft.com/l/meetup-join/example'
+            },
+            {
+                id: '7',
+                summary: 'Daily Catchup',
+                start: { dateTime: '2024-08-31T10:30:00' },
+                end: { dateTime: '2024-08-31T11:00:00' },
+                hangoutLink: 'https://meet.google.com/abc-defg-hij'
+            },
+            {
+                id: '8',
+                summary: 'WBR',
+                start: { dateTime: '2024-08-31T11:00:00' },
+                end: { dateTime: '2024-08-31T13:00:00' }
+            },
+            {
+                id: '9',
+                summary: '😴',
+                start: { dateTime: '2024-08-31T11:00:00' },
+                end: { dateTime: '2024-08-31T18:30:00' },
+                hangoutLink: 'https://meet.google.com/abc-defg-hij'
+            }
+        ];
+
+        function extractMeetingLink(description) {
+            if (!description) return { link: null, type: null };
+
+            const zoomLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/;
+            const teamsLinkRegex = /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s]+/;
+            const googleMeetRegex = /https:\/\/meet\.google\.com\/[a-z-]+/;
+
+            if (zoomLinkRegex.test(description)) return { link: description.match(zoomLinkRegex)[0], type: 'zoom' };
+            if (teamsLinkRegex.test(description)) return { link: description.match(teamsLinkRegex)[0], type: 'teams' };
+            if (googleMeetRegex.test(description)) return { link: description.match(googleMeetRegex)[0], type: 'google' };
+
+            return { link: null, type: null };
+        }
+
+        function openMeetingLink(url, eventId) {
+            console.log(`Opening meeting link: ${url} for event: ${eventId}`);
+        }
+
+        function groupEventsByDate(events) {
+            return events.reduce((groupedEvents, event) => {
+                const startDate = new Date(event.start.dateTime || event.start.date).toDateString();
+                if (!groupedEvents[startDate]) {
+                    groupedEvents[startDate] = [];
+                }
+                groupedEvents[startDate].push(event);
+                return groupedEvents;
+            }, {});
+        }
+
+        function formatTime(date) {
+            let hours = date.getHours();
+            const minutes = date.getMinutes();
+            const ampm = hours >= 12 ? 'a' : 'a';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const minutesFormatted = minutes < 10 ? '0' + minutes : minutes;
+
+            return `${hours}:${minutesFormatted}${ampm}`;
+        }
+
+        function formatTimeRange(start, end) {
+            const startTime = new Date(start.dateTime || start.date);
+            const endTime = new Date(end.dateTime || end.date);
+
+            const startFormatted = formatTime(startTime);
+            const endFormatted = formatTime(endTime);
+
+            return `${startFormatted}-${endFormatted}`;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+
+        function updateEventsList(events) {
+            const groupedEvents = groupEventsByDate(events);
+            const list = document.getElementById('events-list');
+            list.innerHTML = Object.entries(groupedEvents).map(([date, eventsForDate]) => {
+                const eventsHtml = eventsForDate.map(e => {
+                    const { link: meetingLink, type: meetingType } = e.hangoutLink ? 
+                        { link: e.hangoutLink, type: 'google' } : 
+                        extractMeetingLink(e.description) || {};
+
+                    let meetingIcon = '';
+                    switch (meetingType) {
+                        case 'zoom':
+                            meetingIcon = '<i class="fa-solid fa-video"></i>';
+                            break;
+                        case 'teams':
+                            meetingIcon = '<i class="fa-brands fa-microsoft"></i>';
+                            break;
+                        case 'google':
+                            meetingIcon = '<i class="fa-brands fa-google"></i>';
+                            break;
+                    }
+
+                    const joinButton = meetingLink ? 
+                        `<button class="join-button" onclick="openMeetingLink('${meetingLink}', '${e.id}')">${meetingIcon} Join</button>` : 
+                        '';
+
+                    return `
+                        <tr class="event-row">
+                            <td class="time-col">${formatTimeRange(e.start, e.end)}</td>
+                            <td><span class="event-summary">${e.summary}</span></td>
+                            <td style="text-align: right;">${joinButton}</td>
+                        </tr>`;
+                }).join('');
+                return `
+                    <tr>
+                        <td colspan="3" class="date-heading">${formatDate(date)}</td>
+                    </tr>
+                    ${eventsHtml}`;
+            }).join('');
+        }
+
+        // Initial update with sample data
+        updateEventsList(sampleEvents);
+
+        // Simulating the quit button click
+        document.getElementById('quit-button').addEventListener('click', () => {
+            console.log('Quit button clicked');
+        });
+    </script>
+</body>
+</html>

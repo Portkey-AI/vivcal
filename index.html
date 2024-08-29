@@ -1,169 +1,143 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html></html>
-
+<html>
 <head>
   <meta charset="UTF-8">
   <title>Upcoming Meetings</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      background-color: #FFF;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
       font-size: 12px;
-      font-weight: 500;
-      height: 100vh;
-      text-align: center;
-      padding: 0px;
+      font-weight: 400;
     }
 
-    table {
-      width: 100%;
-      /* Adjust as needed */
-      border-collapse: collapse;
-      /* For cleaner cell borders */
-      margin: 0;
-      /* Add margin around the table */
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      /* Optional: adds shadow for depth */
-      border-radius: 4px;
-    }
-
-    td,
-    th {
+    header {
+      background-color: #252525;
       padding: 10px;
-      /* Add padding inside each cell */
-      text-align: left;
-      /* Horizontally center content */
-      vertical-align: middle;
-      /* Vertically center content */
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    tr {
-      background-color: #f0f0f0;
-      /* border-radius: 5px; */
-      transition: background-color 0.3s ease;
-      /* Smooth transition for the hover effect */
+    .app-title {
+      font-size: 16px;
+      font-weight: 600;
     }
 
-    /* Add hover effect on each row */
-    tr:hover {
-      background-color: #e0e0e0;
-      cursor: pointer
-        /* border-radius: 5px; */
-        /* Slightly lighter or darker color on hover */
+    #quit-icon {
+      color: #e0e0e0;
+      font-size: 16px;
+      cursor: pointer;
+      transition: color 0.3s ease;
     }
 
-    .time-col {
-      min-width: 80px;
-      text-align: left;
+    #quit-icon:hover {
+      color: #e74c3c;
+    }
+
+    #events-list {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 8px;
+      padding: 0 10px;
     }
 
     .date-heading {
-      background-color: #e5e3e3;
-      font-weight: 700;
+      background-color: #444;
+      color: #e0e0e0;
+      font-weight: 600;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
     }
 
-    a {
-      color: #0000EE;
-      text-decoration: none;
+    .event-row {
+      background-color: #252525;
+      transition: background-color 0.3s ease;
     }
 
-    #meeting-link {
-      display: flex;
-      /* Use flexbox */
-      align-items: center;
-      /* Center content vertically */
-      justify-content: center;
-      /* Center content horizontally */
+    .event-row:hover {
+      background-color: #2a2a2a;
     }
 
-    #meeting-link>a {
-      display: inline-block;
-      background-color: #007bff;
-      color: white;
-      padding: 5px 10px;
-      text-decoration: none;
-      border-radius: 3px;
-      font-size: 12px;
-      transition: background-color 0.3s;
-      min-width: 60px;
-      text-align: center;
+    .event-row td {
+      padding: 12px 10px;
     }
 
-    #meeting-link>a:hover {
-      background-color: #0056b3;
+    .event-row td:first-child {
+      border-top-left-radius: 6px;
+      border-bottom-left-radius: 6px;
     }
 
-    #quit-button {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background-color: #f44336;
+    .event-row td:last-child {
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
+    }
+
+    .time-col {
+      color: #9e9e9e;
+      width: 90px;
+    }
+
+    .event-summary {
+      font-weight: 500;
+    }
+
+    .join-button-container {
+      min-width: 70px;
+      text-align: right;
+    }
+
+    .join-button {
+      background-color: #3474eb;
       color: white;
       border: none;
-      padding: 5px 10px;
-      border-radius: 3px;
+      padding: 6px 12px;
+      border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
+      font-weight: 500;
       transition: background-color 0.3s;
     }
 
-    #quit-button:hover {
-      background-color: #d32f2f;
+    .join-button:hover {
+      background-color: #2461d6;
+    }
+
+    .join-button i {
+      margin-right: 5px;
     }
   </style>
 </head>
-
 <body>
-  <button id="quit-button">Quit</button>
+  <header>
+    <div class="app-title">Upcoming Meetings</div>
+    <i id="quit-icon" class="fas fa-power-off"></i>
+  </header>
   <table id="events-list"></table>
   <script>
-    const {
-      ipcRenderer
-    } = require('electron');
+    const { ipcRenderer } = require('electron');
 
     function extractMeetingLink(description) {
-      if (!description) return {
-        link: null,
-        type: null
-      };
+      if (!description) return { link: null, type: null };
 
-      // Define regex for different meeting types
       const zoomLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/;
       const teamsLinkRegex = /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s]+/;
-      const webexLinkRegex = /https:\/\/[A-Za-z0-9-.]+\.webex\.com\/[^\s]+/;
-      // ... Add other regex as needed
+      const googleMeetRegex = /https:\/\/meet\.google\.com\/[a-z-]+/;
 
-      if (zoomLinkRegex.test(description)) return {
-        link: description.match(zoomLinkRegex)[0],
-        type: 'zoom'
-      };
-      if (teamsLinkRegex.test(description)) return {
-        link: description.match(teamsLinkRegex)[0],
-        type: 'teams'
-      };
-      if (webexLinkRegex.test(description)) return {
-        link: description.match(webexLinkRegex)[0],
-        type: 'webex'
-      };
-      // ... Add other checks as needed
+      if (zoomLinkRegex.test(description)) return { link: description.match(zoomLinkRegex)[0], type: 'zoom' };
+      if (teamsLinkRegex.test(description)) return { link: description.match(teamsLinkRegex)[0], type: 'teams' };
+      if (googleMeetRegex.test(description)) return { link: description.match(googleMeetRegex)[0], type: 'google' };
 
-      return {
-        link: null,
-        type: null
-      };
+      return { link: null, type: null };
     }
 
     function openMeetingLink(url, eventId) {
-      console.log("Send the meeting link", url, eventId)
-      ipcRenderer.send('open-link', url, eventId)
-      // window.api.openLink(url, eventId);
+      ipcRenderer.send('open-link', url, eventId);
     }
 
     function groupEventsByDate(events) {
@@ -180,12 +154,12 @@
     function formatTime(date) {
       let hours = date.getHours();
       const minutes = date.getMinutes();
-      const ampm = hours >= 12 ? 'p' : 'a';
+      const ampm = hours >= 12 ? 'a' : 'a';
       hours = hours % 12;
-      hours = hours ? hours : 12; // Replace '0' hours with '12'
+      hours = hours ? hours : 12;
       const minutesFormatted = minutes < 10 ? '0' + minutes : minutes;
 
-      return (minutes === 0) ? `${hours}${ampm}` : `${hours}:${minutesFormatted}${ampm}`;
+      return `${hours}:${minutesFormatted}${ampm}`;
     }
 
     function formatTimeRange(start, end) {
@@ -198,57 +172,56 @@
       return `${startFormatted}-${endFormatted}`;
     }
 
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    }
+
     ipcRenderer.on('update-events', (event, events) => {
       const groupedEvents = groupEventsByDate(events);
       const list = document.getElementById('events-list');
       list.innerHTML = Object.entries(groupedEvents).map(([date, eventsForDate]) => {
         const eventsHtml = eventsForDate.map(e => {
-          const {
-            link: meetingLink,
-            type: meetingType
-          } = e.hangoutLink ? {
-            link: e.hangoutLink,
-            type: 'hangouts'
-          } : extractMeetingLink(e.description) || {};
+          const { link: meetingLink, type: meetingType } = e.hangoutLink ? 
+            { link: e.hangoutLink, type: 'google' } : 
+            extractMeetingLink(e.description) || {};
 
           let meetingIcon = '';
           switch (meetingType) {
             case 'zoom':
-              meetingIcon =
-                '<i class="fa-solid fa-video-camera"></i>'; // Example icon, replace with a relevant one
+              meetingIcon = '<i class="fa-solid fa-video"></i>';
               break;
             case 'teams':
-              meetingIcon =
-                '<i class="fa-brands fa-windows"></i>'; // Example icon, replace with a relevant one
+              meetingIcon = '<i class="fa-brands fa-microsoft"></i>';
               break;
-            case 'webex':
-              meetingIcon =
-                '<i class="fa-solid fa-video-camera"></i>'; // Example icon, replace with a relevant one
+            case 'google':
+              meetingIcon = '<i class="fa-brands fa-google"></i>';
               break;
-            case 'hangouts':
-              meetingIcon =
-                '<i class="fa-brands fa-google"></i>'; // Example icon, replace with a relevant one
-              break;
-              // ... Add other cases as needed
           }
 
-          console.log(meetingLink, meetingIcon)
+          const joinButton = meetingLink ? 
+            `<button class="join-button" onclick="openMeetingLink('${meetingLink}', '${e.id}')">${meetingIcon} Join</button>` : 
+            '';
 
-          return `<tr><td class="time-col">${formatTimeRange(e.start, e.end)}</td> <td><strong>${e.summary}</strong></td>
-                <td><div id="meeting-link">
-                    ${meetingLink ? `<a href="#" onclick="openMeetingLink('${meetingLink}', '${e.id}')">${meetingIcon} Join</a>` : ""}
-                </div></td>
+          return `
+            <tr class="event-row">
+              <td class="time-col">${formatTimeRange(e.start, e.end)}</td>
+              <td><span class="event-summary">${e.summary}</span></td>
+              <td class="join-button-container">${joinButton}</td>
             </tr>`;
         }).join('');
-        return `<tr><td colspan="3" class="date-heading"><strong>${date}</strong></td></tr>${eventsHtml}`;
+        return `
+          <tr>
+            <td colspan="3" class="date-heading">${formatDate(date)}</td>
+          </tr>
+          ${eventsHtml}`;
       }).join('');
     });
 
-    // Add event listener for the quit button
-    document.getElementById('quit-button').addEventListener('click', () => {
+    document.getElementById('quit-icon').addEventListener('click', () => {
       ipcRenderer.send('quit-app');
     });
   </script>
 </body>
-
 </html>

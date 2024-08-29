@@ -103,16 +103,48 @@
       border-left: 2px solid #444;
       margin-left: 44px;
     }
+
+    #timezone-select {
+      background-color: #333;
+      color: #e0e0e0;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 5px;
+      font-size: 12px;
+      margin-right: 10px;
+    }
+
+    #timezone-select:focus {
+      outline: none;
+      border-color: #3474eb;
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="app-title">Upcoming Meetings</div>
-    <i id="quit-icon" class="fas fa-power-off"></i>
+    <div>
+      <select id="timezone-select"></select>
+      <i id="quit-icon" class="fas fa-power-off"></i>
+    </div>
   </header>
   <div id="events-container"></div>
   <script>
     const { ipcRenderer } = require('electron');
+
+    let currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    function populateTimezoneDropdown() {
+      const select = document.getElementById('timezone-select');
+      const timeZones = Intl.supportedValuesOf('timeZone');
+      timeZones.forEach(zone => {
+        const option = document.createElement('option');
+        option.value = zone;
+        option.textContent = zone;
+        select.appendChild(option);
+      });
+      select.value = currentTimezone;
+    }
 
     function extractMeetingLink(description) {
       if (!description) return { link: null, type: null };
@@ -134,7 +166,7 @@
 
     function groupEventsByDate(events) {
       return events.reduce((groupedEvents, event) => {
-        const startDate = new Date(event.start.dateTime || event.start.date).toDateString();
+        const startDate = new Date(event.start.dateTime || event.start.date).toLocaleDateString('en-US', { timeZone: currentTimezone });
         if (!groupedEvents[startDate]) {
           groupedEvents[startDate] = [];
         }
@@ -144,38 +176,36 @@
     }
 
     function formatTime(date) {
-      let hours = date.getHours();
-      const minutes = date.getMinutes();
-      const ampm = hours >= 12 ? 'a' : 'a';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const minutesFormatted = minutes < 10 ? '0' + minutes : minutes;
-
-      return `${hours}:${minutesFormatted}${ampm}`;
+      return new Date(date).toLocaleTimeString('en-US', { 
+        timeZone: currentTimezone, 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      }).toLowerCase();
     }
 
     function formatTimeRange(start, end) {
-      const startTime = new Date(start.dateTime || start.date);
-      const endTime = new Date(end.dateTime || end.date);
-
-      const startFormatted = formatTime(startTime);
-      const endFormatted = formatTime(endTime);
-
-      return `${startFormatted}-${endFormatted}`;
+      const startTime = formatTime(start.dateTime || start.date);
+      const endTime = formatTime(end.dateTime || end.date);
+      return `${startTime}-${endTime}`;
     }
 
     function formatDate(dateString) {
-      const date = new Date(dateString);
-      const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
-      return date.toLocaleDateString('en-US', options);
+      return new Date(dateString).toLocaleDateString('en-US', {
+        timeZone: currentTimezone,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
     }
 
     function calculateTimeDifference(endTime, nextStartTime) {
-      const diff = (new Date(nextStartTime) - new Date(endTime)) / (1000 * 60); // difference in minutes
+      const diff = (new Date(nextStartTime) - new Date(endTime)) / (1000 * 60);
       return Math.max(0, Math.min(60, diff)); // Cap at 60 minutes
     }
 
-    ipcRenderer.on('update-events', (event, events) => {
+    function renderEvents(events) {
       const groupedEvents = groupEventsByDate(events);
       const container = document.getElementById('events-container');
       container.innerHTML = Object.entries(groupedEvents).map(([date, eventsForDate]) => {
@@ -213,7 +243,7 @@
             const nextEvent = eventsForDate[index + 1];
             const timeDiff = calculateTimeDifference(e.end.dateTime, nextEvent.start.dateTime);
             if (timeDiff > 0) {
-              eventsHtml += `<div class="time-gap" style="height: ${timeDiff}px;"></div>`;
+              eventsHtml += `<div class="time-gap" style="height: ${timeDiff/2}px;"></div>`;
             }
           }
         });
@@ -222,11 +252,26 @@
           <div class="date-heading">${formatDate(date)}</div>
           ${eventsHtml}`;
       }).join('');
+    }
+
+    let cachedEvents = [];
+
+    ipcRenderer.on('update-events', (event, events) => {
+      cachedEvents = events;
+      renderEvents(events);
     });
 
     document.getElementById('quit-icon').addEventListener('click', () => {
       ipcRenderer.send('quit-app');
     });
+
+    document.getElementById('timezone-select').addEventListener('change', (event) => {
+      currentTimezone = event.target.value;
+      renderEvents(cachedEvents);
+    });
+
+    // Initialize timezone dropdown
+    populateTimezoneDropdown();
   </script>
 </body>
 </html>

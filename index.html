@@ -39,11 +39,8 @@
       color: #e74c3c;
     }
 
-    #events-list {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0 8px;
-      padding: 0 10px;
+    #events-container {
+      padding: 10px;
     }
 
     .date-heading {
@@ -53,29 +50,21 @@
       padding: 10px;
       font-size: 16px;
       border-radius: 6px;
+      margin-bottom: 8px;
     }
 
     .event-row {
       background-color: #252525;
       transition: background-color 0.3s ease;
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .event-row:hover {
       background-color: #2a2a2a;
-    }
-
-    .event-row td {
-      padding: 12px 10px;
-    }
-
-    .event-row td:first-child {
-      border-top-left-radius: 6px;
-      border-bottom-left-radius: 6px;
-    }
-
-    .event-row td:last-child {
-      border-top-right-radius: 6px;
-      border-bottom-right-radius: 6px;
     }
 
     .time-col {
@@ -85,11 +74,8 @@
 
     .event-summary {
       font-weight: 500;
-    }
-
-    .join-button-container {
-      min-width: 70px;
-      text-align: right;
+      flex-grow: 1;
+      margin: 0 10px;
     }
 
     .join-button {
@@ -111,6 +97,12 @@
     .join-button i {
       margin-right: 5px;
     }
+
+    .time-gap {
+      background-color: #1e1e1e;
+      border-left: 2px solid #444;
+      margin-left: 44px;
+    }
   </style>
 </head>
 <body>
@@ -118,7 +110,7 @@
     <div class="app-title">Upcoming Meetings</div>
     <i id="quit-icon" class="fas fa-power-off"></i>
   </header>
-  <table id="events-list"></table>
+  <div id="events-container"></div>
   <script>
     const { ipcRenderer } = require('electron');
 
@@ -178,11 +170,17 @@
       return date.toLocaleDateString('en-US', options);
     }
 
+    function calculateTimeDifference(endTime, nextStartTime) {
+      const diff = (new Date(nextStartTime) - new Date(endTime)) / (1000 * 60); // difference in minutes
+      return Math.max(0, Math.min(60, diff)); // Cap at 60 minutes
+    }
+
     ipcRenderer.on('update-events', (event, events) => {
       const groupedEvents = groupEventsByDate(events);
-      const list = document.getElementById('events-list');
-      list.innerHTML = Object.entries(groupedEvents).map(([date, eventsForDate]) => {
-        const eventsHtml = eventsForDate.map(e => {
+      const container = document.getElementById('events-container');
+      container.innerHTML = Object.entries(groupedEvents).map(([date, eventsForDate]) => {
+        let eventsHtml = '';
+        eventsForDate.forEach((e, index) => {
           const { link: meetingLink, type: meetingType } = e.hangoutLink ? 
             { link: e.hangoutLink, type: 'google' } : 
             extractMeetingLink(e.description) || {};
@@ -204,17 +202,24 @@
             `<button class="join-button" onclick="openMeetingLink('${meetingLink}', '${e.id}')">${meetingIcon} Join</button>` : 
             '';
 
-          return `
-            <tr class="event-row">
-              <td class="time-col">${formatTimeRange(e.start, e.end)}</td>
-              <td><span class="event-summary">${e.summary}</span></td>
-              <td class="join-button-container">${joinButton}</td>
-            </tr>`;
-        }).join('');
+          eventsHtml += `
+            <div class="event-row">
+              <span class="time-col">${formatTimeRange(e.start, e.end)}</span>
+              <span class="event-summary">${e.summary}</span>
+              <span>${joinButton}</span>
+            </div>`;
+
+          if (index < eventsForDate.length - 1) {
+            const nextEvent = eventsForDate[index + 1];
+            const timeDiff = calculateTimeDifference(e.end.dateTime, nextEvent.start.dateTime);
+            if (timeDiff > 0) {
+              eventsHtml += `<div class="time-gap" style="height: ${timeDiff}px;"></div>`;
+            }
+          }
+        });
+
         return `
-          <tr>
-            <td colspan="3" class="date-heading">${formatDate(date)}</td>
-          </tr>
+          <div class="date-heading">${formatDate(date)}</div>
           ${eventsHtml}`;
       }).join('');
     });

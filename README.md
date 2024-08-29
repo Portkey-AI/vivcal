@@ -49,3 +49,5 @@ npm run dist
 2. Run the application by going into the dist/mac-arm64 folder and clicking the VivCal.app/Electron.app file.
 
 You should now have Vivcal running on your machine.
+
+Logs for this are available at `~/Library/Application\ Support/vivcal/logs/main.log`

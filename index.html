@@ -1,3 +1,4 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html></html>
 
@@ -98,10 +99,29 @@
     #meeting-link>a:hover {
       background-color: #0056b3;
     }
+
+    #quit-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.3s;
+    }
+
+    #quit-button:hover {
+      background-color: #d32f2f;
+    }
   </style>
 </head>
 
 <body>
+  <button id="quit-button">Quit</button>
   <table id="events-list"></table>
   <script>
     const {
@@ -222,6 +242,11 @@
         }).join('');
         return `<tr><td colspan="3" class="date-heading"><strong>${date}</strong></td></tr>${eventsHtml}`;
       }).join('');
+    });
+
+    // Add event listener for the quit button
+    document.getElementById('quit-button').addEventListener('click', () => {
+      ipcRenderer.send('quit-app');
     });
   </script>
 </body>

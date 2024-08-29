@@ -1,3 +1,4 @@
+//main.js
 const { app, BrowserWindow, Tray, ipcMain, shell, screen, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -410,6 +411,10 @@ app.on('ready', async () => {
 
     ipcMain.on('log', (event, logMessage, additionalInfo) => {
       log.info("Log:", logMessage, additionalInfo);
+    });
+
+    ipcMain.on('quit-app', () => {
+      app.quit();
     });
 
   } catch (err) {

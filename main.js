@@ -1,20 +1,57 @@
-const { google } = require('googleapis');
 const { app, BrowserWindow, Tray, ipcMain, shell, screen, Notification } = require('electron');
-const fs = require('fs');
 const path = require('path');
-const http = require('http');
-const destroyer = require('server-destroy');
+const fs = require('fs');
 const log = require('electron-log');
 
-let mainWindow, tray, reminderWindow, authClient;
-const TOKEN_PATH = 'token.json';
-const CREDENTIALS_PATH = path.join(__dirname, 'google-creds.json');
-const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
+// Configure electron-log
+log.transports.file.resolvePath = () => path.join(app.getPath('userData'), 'logs/main.log');
+log.transports.file.level = 'info';
+log.transports.console.level = 'info';
+
+// Override console.log
+console.log = log.log;
+
+// Log some initial information
+log.info('Application starting...');
+log.info(`App version: ${app.getVersion()}`);
+log.info(`Electron version: ${process.versions.electron}`);
+log.info(`Chrome version: ${process.versions.chrome}`);
+log.info(`Node version: ${process.versions.node}`);
+log.info(`App path: ${app.getAppPath()}`);
+log.info(`User data path: ${app.getPath('userData')}`);
+
+// Use app.getAppPath() to get the base directory of your app
+const BASE_PATH = app.getAppPath();
+
+const TOKEN_PATH = path.join(BASE_PATH, 'token.json');
+const CREDENTIALS_PATH = path.join(BASE_PATH, 'google-creds.json');
+const ICON_PATH = path.join(BASE_PATH, 'icon.png');
+
+// Read credentials
+let credentials;
+try {
+  credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+  log.info('Credentials loaded successfully');
+} catch (error) {
+  log.error('Error loading credentials:', error);
+  app.quit();
+}
+
+let google;
+try {
+  const { google: googleApi } = require('googleapis');
+  google = googleApi;
+  log.info('Google API loaded successfully');
+} catch (error) {
+  log.error('Error loading Google API:', error);
+}
+
 const { client_secret, client_id, redirect_uris } = credentials.installed;
 const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
 let lastDismissedEventId = null;
 let updateTrayInterval;
+let reminderWindow;
 
 function showNotification(title, message, url, eventId) {
   const notification = new Notification({
@@ -118,7 +155,11 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadFile('index.html');
+  const indexPath = path.join(BASE_PATH, 'index.html');
+
+  mainWindow.loadFile(indexPath);
+  log.info(`Loading index.html from: ${indexPath}`);
+
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   mainWindow.on('blur', () => {
@@ -327,10 +368,15 @@ function cleanup() {
 }
 
 app.on('ready', async () => {
-  tray = new Tray('icon.png');
-  log.info('Vivcal is ready!');
-
   try {
+
+    tray = new Tray(ICON_PATH);
+    log.info('Vivcal is ready!');
+
+    if (!google) {
+      throw new Error('Google API not loaded');
+    }
+
     await startApp();
     createWindow();
 
@@ -367,7 +413,8 @@ app.on('ready', async () => {
     });
 
   } catch (err) {
-    console.error(err);
+    log.error('Error in app.on("ready"):', err);
+    app.quit();
   }
 });
 
@@ -387,3 +434,12 @@ function getWindowPosition(tray, window) {
   const y = Math.round(trayBounds.y + trayBounds.height);
   return { x, y };
 }
+
+// Add this at the end of your file
+process.on('uncaughtException', (error) => {
+  log.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  log.error('Unhandled rejection at:', promise, 'reason:', reason);
+});

@@ -5,3 +5,4 @@ google-creds.json
 token.json
 
 out/
+dist/

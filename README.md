@@ -38,3 +38,14 @@ It would look something like this
 ```
 npm start
 ```
+
+## Packaging and running it on your local machine
+
+1. Package the application
+```
+npm run dist
+```
+
+2. Run the application by going into the dist/mac-arm64 folder and clicking the VivCal.app/Electron.app file.
+
+You should now have Vivcal running on your machine.

@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path')
 const http = require('http');
 const destroyer = require('server-destroy');
+const log = require('electron-log');
 
 let mainWindow, tray;
 const TOKEN_PATH = 'token.json'; // Path to save your token
@@ -41,7 +42,7 @@ function showNotification(title, message, url, eventId) {
   })
 
   notification.on('click', () => {
-    console.log('notif was clicked')
+    log.info('notif was clicked')
     shell.openExternal(url);
     lastDismissedEventId = eventId;
     notification.close
@@ -51,7 +52,7 @@ function showNotification(title, message, url, eventId) {
 }
 
 function createReminderWindow(eventDetails, meetingLink, eventId) {
-  console.log("Creating the reminder window")
+  log.info("Creating the reminder window")
   if (reminderWindow) {
     // Update the content of the existing window instead of creating a new one
     reminderWindow.webContents.send('update-content', eventDetails, meetingLink, eventId);
@@ -167,13 +168,13 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
 
   // Clean up when the window is closed
   reminderWindow.on('closed', () => {
-    console.log("The reminder window was closed")
+    log.info("The reminder window was closed")
     reminderWindow = null;
   });
 }
 
 function createWindow(nextEvents) {
-  console.log("Creating the main window")
+  log.info("Creating the main window")
   mainWindow = new BrowserWindow({
     width: 450,
     height: 550,
@@ -232,6 +233,8 @@ function authenticate() {
 
     destroyer(server);
 
+    log.info('Opening the browser for authentication', authUrl);
+
     // Open the user's default browser for authentication
     require('electron').shell.openExternal(authUrl);
   });
@@ -241,7 +244,7 @@ function extractMeetingLink(description) {
   if (!description) return null;
 
   // Regular expression for Zoom links
-  const zoomLinkRegex = /https:\/\/us02web\.zoom\.us\/j\/[^\s]+/;
+  const zoomLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/;
   const zoomMatch = zoomLinkRegex.exec(description);
   if (zoomMatch) return zoomMatch[0];
 
@@ -286,7 +289,7 @@ async function getNextEvent(auth) {
     const response = await calendar.events.list({
       calendarId: 'primary',
       timeMin: (new Date()).toISOString(),
-      maxResults: 10,
+      maxResults: 20,
       singleEvents: true,
       orderBy: 'startTime',
     });
@@ -361,10 +364,12 @@ async function startApp() {
   try {
     // Check if the token exists and set credentials
     if (fs.existsSync(TOKEN_PATH)) {
+      log.info('Token found, setting credentials');
       const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
       oAuth2Client.setCredentials(token);
       authClient = oAuth2Client;
     } else {
+      log.info('No token found, starting authentication');
       // Authenticate if no token found
       authClient = await authenticate();
     }
@@ -379,11 +384,11 @@ async function startApp() {
     
         // If there's an upcoming event within the next 30 minutes and we're in a current event
         if (event && nextEvent) {
-          console.log(event.summary, nextEvent.summary)
+          log.info(event.summary, nextEvent.summary)
           const now = new Date();
           const nextEventStartTime = new Date(nextEvent.start.dateTime || nextEvent.start.date);
           if (nextEventStartTime - now <= 30 * 60 * 1000) {
-            console.log("Next event is within 30 mins")
+            log.info("Next event is within 30 mins")
             eventName = `${nextEvent.summary} in ${createTimeString(nextEvent)}`;
           }
         }
@@ -392,15 +397,15 @@ async function startApp() {
         handleReminderWindow(events)
 
         if (cacheMainWindowEvents.join(",") !== events.events.map(e => e.id).join(",")) {
-          console.log("Updating events on the main window");
+          log.info("Updating events on the main window");
           mainWindow.webContents.send('update-events', events.events);
           cacheMainWindowEvents = events.events.map(e => e.id);
         } else {
-          console.log("Skipping main window event refresh")
+          log.info("Skipping main window event refresh")
         }
 
       } catch (error) {
-        console.error('Error updating tray:', error);
+        log.error('Error updating tray:', error);
         tray.setTitle('Error updating event');
       }
     };
@@ -417,6 +422,8 @@ async function startApp() {
 
 app.on('ready', async () => {
   tray = new Tray('icon.png'); // Empty string for tray icon
+
+  log.info('Vivcal is ready!');
 
   try {
     startApp()
@@ -435,7 +442,7 @@ app.on('ready', async () => {
 
     ipcMain.on('close-reminder', (event, eventId) => {
       if (reminderWindow) {
-        console.log("Use clicked on reminder window close")
+        log.info("Use clicked on reminder window close")
         lastDismissedEventId = eventId; // Track the dismissed event
         reminderWindow.close();
       }
@@ -450,7 +457,7 @@ app.on('ready', async () => {
     });
 
     ipcMain.on('log', (event, event2, events) => {
-      console.log("Log:", event2, events)
+      log.info("Log:", event2, events)
     })
 
   } catch (err) {

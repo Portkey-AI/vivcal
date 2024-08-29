@@ -3,3 +3,5 @@ release-builds
 vivcal-darwin-arm64
 google-creds.json
 token.json
+
+out/

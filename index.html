@@ -125,7 +125,7 @@
     <div class="app-title">Upcoming Meetings</div>
     <div>
       <select id="timezone-select"></select>
-      <i id="quit-icon" class="fas fa-power-off"></i>
+      <i id="quit-icon" class="fas fa-power-off" title="Close Vivcal"></i>
     </div>
   </header>
   <div id="events-container"></div>
@@ -136,14 +136,34 @@
 
     function populateTimezoneDropdown() {
       const select = document.getElementById('timezone-select');
-      const timeZones = Intl.supportedValuesOf('timeZone');
-      timeZones.forEach(zone => {
+      const timezones = [
+        { value: 'Asia/Calcutta', textContent: 'IST (India)' },
+        { value: 'America/New_York', textContent: 'ET (New York)' },
+        { value: 'America/Los_Angeles', textContent: 'PT (Los Angeles)' },
+        { value: 'America/Denver', textContent: 'MT (Denver)' },
+        { value: 'Asia/Singapore', textContent: 'SGT (Singapore)' },
+        { value: 'Europe/London', textContent: 'BST/GMT (London)' },
+        { value: 'Europe/Paris', textContent: 'CET/CEST (Paris, Berlin)' }
+      ];
+      timezones.forEach(zone => {
         const option = document.createElement('option');
-        option.value = zone;
-        option.textContent = zone;
+        option.value = zone.value;
+        option.textContent = zone.textContent;
         select.appendChild(option);
       });
-      select.value = currentTimezone;
+      const currentTimezoneOption = Array.from(select.options).find(option => 
+        option.value === currentTimezone || option.textContent.includes(currentTimezone)
+      );
+
+      if (currentTimezoneOption) {
+        currentTimezoneOption.selected = true;
+      } else {
+        const option = document.createElement('option');
+        option.value = currentTimezone;
+        option.textContent = currentTimezone;
+        select.appendChild(option);
+        option.selected = true;
+      }
     }
 
     function extractMeetingLink(description) {

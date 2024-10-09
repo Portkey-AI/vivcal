@@ -1,5 +1,5 @@
 //main.js
-const { app, BrowserWindow, Tray, ipcMain, shell, screen, Notification } = require('electron');
+const { app, BrowserWindow, Tray, ipcMain, shell, screen, Notification, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const log = require('electron-log');
@@ -26,7 +26,10 @@ const BASE_PATH = app.getAppPath();
 
 const TOKEN_PATH = path.join(BASE_PATH, 'token.json');
 const CREDENTIALS_PATH = path.join(BASE_PATH, 'google-creds.json');
-const ICON_PATH = path.join(BASE_PATH, 'icon.png');
+
+const trayIcon = nativeImage.createFromPath(
+  path.join(__dirname, "iconTemplate.png")
+);
 
 // Read credentials
 let credentials;
@@ -99,8 +102,8 @@ function showNotification(title, message, url, eventId) {
 }
 
 function createReminderWindow(eventDetails, meetingLink, eventId) {
-  log.info("Creating the reminder window");
   if (reminderWindow) {
+    log.info("Creating the reminder window");
     reminderWindow.webContents.send('update-content', eventDetails, meetingLink, eventId);
     return;
   }
@@ -127,8 +130,74 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
   });
 
   const windowHTML = `
-  <!-- HTML content remains the same -->
-  `;
+  <html>
+    <head>
+      <style>
+        body {
+          margin: 0;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background-color: #FFF;
+          font-size: 16px;
+          font-weight: 500;
+          height: 100vh;
+        }
+        #close-button {
+          position: absolute;
+          top: 5px;
+          right: 10px;
+          border: 1px solid #eee;
+          border-radius: 10px;
+          background-color: transparent;
+          cursor: pointer;
+          font-size: 18px;
+          line-height: 20px;
+          opacity: 0.7;
+        }
+        #close-button:hover {
+          opacity: 1;
+        }
+        #event {
+          margin-bottom: 15px; /* Space between event and button */
+        }
+        #meeting-link > a {
+          display: inline-block;
+          background-color: #007bff;
+          color: white;
+          padding: 5px 10px;
+          text-decoration: none;
+          border-radius: 3px;
+          font-size: 12px;
+          transition: background-color 0.3s;
+        }
+        #meeting-link > a:hover {
+          background-color: #0056b3;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="event">${eventDetails}</div>
+      ${meetingLink ? `<div id="meeting-link"><a href="#" onclick="openMeetingLink('${meetingLink}')">Join Meeting</a></div>` : ''}
+      <button id="close-button" onclick="closeWindow()" title="Close reminder window">×</button>
+      <script>
+        function closeWindow() {
+          window.api.closeReminderWindow('${eventId}');
+        }
+        function openMeetingLink(url) {
+          window.api.openLink(url,'${eventId}');
+        }
+        // Function to play a sound
+        function playSound() {
+          var audio = new Audio('alert.wav'); // Add the correct path to your sound file
+          audio.play();
+        }
+        playSound();
+      </script>
+    </body>
+  </html>`;
 
   reminderWindow.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(windowHTML));
   reminderWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -371,7 +440,10 @@ function cleanup() {
 app.on('ready', async () => {
   try {
 
-    tray = new Tray(ICON_PATH);
+    let icon = trayIcon.resize({ width: 16, height: 16 });
+    icon.setTemplateImage(true);
+
+    tray = new Tray(icon);
     log.info('Vivcal is ready!');
 
     if (!google) {

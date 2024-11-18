@@ -170,10 +170,12 @@
       if (!description) return { link: null, type: null };
 
       const zoomLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/;
+      const zoomMyLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/my\/[^\s"<>]+/;
       const teamsLinkRegex = /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s]+/;
       const googleMeetRegex = /https:\/\/meet\.google\.com\/[a-z-]+/;
 
       if (zoomLinkRegex.test(description)) return { link: description.match(zoomLinkRegex)[0], type: 'zoom' };
+      if (zoomMyLinkRegex.test(description)) return { link: description.match(zoomMyLinkRegex)[0], type: 'zoom' };
       if (teamsLinkRegex.test(description)) return { link: description.match(teamsLinkRegex)[0], type: 'teams' };
       if (googleMeetRegex.test(description)) return { link: description.match(googleMeetRegex)[0], type: 'google' };
 

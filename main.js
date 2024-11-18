@@ -3,9 +3,13 @@ const { app, BrowserWindow, Tray, ipcMain, shell, screen, Notification, nativeIm
 const path = require('path');
 const fs = require('fs');
 const log = require('electron-log');
+const http = require('http');
+const destroyer = require('server-destroy');
+const localtunnel = require('localtunnel');
+const crypto = require('crypto');
 
 // Configure electron-log
-log.transports.file.resolvePath = () => path.join(app.getPath('userData'), 'logs/main.log');
+log.transports.file.resolvePathFn = () => path.join(app.getPath('userData'), 'logs/main.log');
 log.transports.file.level = 'info';
 log.transports.console.level = 'info';
 
@@ -26,6 +30,9 @@ const BASE_PATH = app.getAppPath();
 
 const TOKEN_PATH = path.join(BASE_PATH, 'token.json');
 const CREDENTIALS_PATH = path.join(BASE_PATH, 'google-creds.json');
+const WEBHOOK_PORT = 8085;
+const WEBHOOK_PATH = '/calendar-webhook';
+const CHANNEL_ID = crypto.randomUUID();
 
 const trayIcon = nativeImage.createFromPath(
   path.join(__dirname, "iconTemplate.png")
@@ -56,6 +63,98 @@ const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_u
 let lastDismissedEventId = null;
 let updateTrayInterval;
 let reminderWindow;
+
+let webhookServer;
+let channelExpiration;
+
+async function setupWebhook(auth) {
+  // Cleanup existing webhook server if it exists
+  if (webhookServer) {
+    webhookServer.destroy();
+  }
+
+  const calendar = google.calendar({ version: 'v3', auth });
+
+  // Create webhook server
+  webhookServer = http.createServer(async (req, res) => {
+    console.log("Webhook server received request:", req.url);
+    if (req.method === 'POST' && req.url === WEBHOOK_PATH) {
+      let body = '';
+      req.on('data', chunk => { body += chunk;});
+
+      req.on('end', async () => {
+        res.writeHead(200);
+        res.end();
+
+        // Update tray on notification
+        await updateTrayTitle();
+      });
+    }
+  });
+
+  // Enable server cleanup on destroy
+  destroyer(webhookServer);
+  
+  // Start the server
+  webhookServer.listen(WEBHOOK_PORT, () => {
+    log.info(`Webhook server is running on port ${WEBHOOK_PORT}`);
+  });
+
+  // Setup localtunnel
+  try {
+    const tunnel = await localtunnel({
+      port: WEBHOOK_PORT,
+      subdomain: 'major-lies-drop'
+    });
+
+    log.info(`Localtunnel URL: ${tunnel.url}`);
+
+    // Handle tunnel errors
+    tunnel.on('error', err => {
+      log.error('Localtunnel error:', err);
+      fallbackToPolling();
+    });
+
+    tunnel.on('close', () => {
+      log.info('Localtunnel closed');
+      fallbackToPolling();
+    });
+
+    // Set up push notifications
+    try {
+      const response = await calendar.events.watch({
+        calendarId: 'primary',
+        resource: {
+          id: CHANNEL_ID,
+          type: 'web_hook',
+          address: `${tunnel.url}${WEBHOOK_PATH}`
+        }
+      });
+
+      channelExpiration = new Date(parseInt(response.data.expiration));
+      log.info(`Webhook set up with expiration: ${channelExpiration}`);
+
+      // Schedule webhook renewal before expiration
+      const renewalTime = new Date(channelExpiration.getTime() - 60 * 1000);
+      setTimeout(() => setupWebhook(auth), renewalTime.getTime() - Date.now());
+    } catch (error) {
+      log.error('Error setting up webhook:', error);
+      fallbackToPolling();
+    }
+  } catch (error) {
+    log.error('Error setting up localtunnel:', error);
+    fallbackToPolling();
+  }
+}
+
+// Helper function for fallback
+function fallbackToPolling() {
+  log.info('Falling back to polling mechanism');
+  updateTrayTitle();
+  if (!updateTrayInterval) {
+    updateTrayInterval = setInterval(updateTrayTitle, 30000);
+  }
+}
 
 function showNotification(title, message, url, eventId) {
   const notification = new Notification({
@@ -294,13 +393,13 @@ function createTimeString(event) {
   const timeDiff = startTime - new Date();
   const minutesDiff = Math.floor(timeDiff / 60000);
   const hoursDiff = Math.floor(minutesDiff / 60);
-  const minutesLeft = minutesDiff % 60;
+  const minutesLeft = Math.round((minutesDiff % 60) / 10) * 10;
 
   if (hoursDiff <= 0 && minutesLeft <= 0) return "now";
 
   let timeString = 'in ';
   if (hoursDiff > 0) timeString += `${hoursDiff}h `;
-  if (minutesLeft > 0 && hoursDiff < 1) timeString += `${minutesLeft}m`;
+  if (minutesLeft > 0) timeString += `${minutesLeft}m`;
 
   return timeString;
 }
@@ -373,7 +472,12 @@ async function handleReminderWindow(eventsObj) {
   }
 }
 
+function elipsis(text, maxLength) {
+  return text.length > maxLength ? text.substring(0, maxLength - 3).trim() + '..' : text;
+}
+
 async function updateTrayTitle() {
+  console.log("Updating tray title");
   try {
     const events = await getNextEvent(authClient);
     const { event, nextEvent } = events;
@@ -384,14 +488,16 @@ async function updateTrayTitle() {
       const nextEventStartTime = new Date(nextEvent.start.dateTime || nextEvent.start.date);
       if (nextEventStartTime - now <= 30 * 60 * 1000) {
         log.info("Next event is within 30 mins");
-        eventName = `${nextEvent.summary} in ${createTimeString(nextEvent)}`;
+        eventName = `${elipsis(nextEvent.summary, 20)} ${createTimeString(nextEvent)}`;
       }
     }
+
+    console.log(eventName);
 
     tray.setTitle(eventName);
     handleReminderWindow(events);
 
-    if (mainWindow) {
+    if (typeof mainWindow?.webContents?.send === 'function') {
       mainWindow.webContents.send('update-events', events.events);
     }
 
@@ -413,8 +519,13 @@ async function startApp() {
       authClient = await authenticate();
     }
 
-    updateTrayTitle();
-    updateTrayInterval = setInterval(updateTrayTitle, 5000);
+    await createWindow();
+    await updateTrayTitle();
+
+    // Setup webhook
+    await setupWebhook(authClient);
+
+    // updateTrayInterval = setInterval(updateTrayTitle, 30000);
 
   } catch (error) {
     console.error('Error:', error);
@@ -426,6 +537,9 @@ function cleanup() {
   if (updateTrayInterval) {
     clearInterval(updateTrayInterval);
   }
+  if (webhookServer) {
+    webhookServer.destroy();
+  }
   if (tray) {
     tray.destroy();
   }
@@ -434,6 +548,18 @@ function cleanup() {
   }
   if (reminderWindow) {
     reminderWindow.close();
+  }
+
+  // Stop webhook notifications if channel exists
+  if (authClient && channelExpiration && channelExpiration > new Date()) {
+    console.log("Stopping webhook notifications");
+    const calendar = google.calendar({ version: 'v3', auth: authClient });
+    calendar.channels.stop({
+      requestBody: {
+        id: CHANNEL_ID,
+        resourceId: 'primary'
+      }
+    }).catch(err => log.error('Error stopping webhook:', err));
   }
 }
 
@@ -451,7 +577,6 @@ app.on('ready', async () => {
     }
 
     await startApp();
-    createWindow();
 
     tray.on('click', () => {
       if (mainWindow) {

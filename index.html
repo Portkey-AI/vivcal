@@ -171,15 +171,29 @@
 
       const zoomLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/;
       const zoomMyLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/my\/[^\s"<>]+/;
-      const teamsLinkRegex = /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s]+/;
+      const teamsLinkRegex = /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^>\s]+/;
       const googleMeetRegex = /https:\/\/meet\.google\.com\/[a-z-]+/;
 
-      if (zoomLinkRegex.test(description)) return { link: description.match(zoomLinkRegex)[0], type: 'zoom' };
-      if (zoomMyLinkRegex.test(description)) return { link: description.match(zoomMyLinkRegex)[0], type: 'zoom' };
-      if (teamsLinkRegex.test(description)) return { link: description.match(teamsLinkRegex)[0], type: 'teams' };
-      if (googleMeetRegex.test(description)) return { link: description.match(googleMeetRegex)[0], type: 'google' };
+      let meetingLink = null;
+      let meetingType = null;
 
-      return { link: null, type: null };
+      if (zoomLinkRegex.test(description)) {
+        meetingLink = description.match(zoomLinkRegex)[0];
+        meetingType = 'zoom';
+      } else if (zoomMyLinkRegex.test(description)) {
+        meetingLink = description.match(zoomMyLinkRegex)[0];
+        meetingType = 'zoom';
+      } else if (teamsLinkRegex.test(description)) {
+        meetingLink = description.match(teamsLinkRegex)[0];
+        // Teams links often end with '>' in the email format, remove it if present
+        meetingLink = meetingLink.replace(/[>]+$/, '');
+        meetingType = 'teams';
+      } else if (googleMeetRegex.test(description)) {
+        meetingLink = description.match(googleMeetRegex)[0];
+        meetingType = 'google';
+      }
+
+      return { link: meetingLink, type: meetingType };
     }
 
     function openMeetingLink(url, eventId) {

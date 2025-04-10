@@ -5,18 +5,18 @@
   "main": "main.js",
   "dependencies": {
     "electron-log": "^5.2.2",
-    "googleapis": "^144.0.0",
     "localtunnel": "^2.0.2",
     "node-fetch": "^3.3.2",
     "server-destroy": "^1.0.1"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
+    "electron": "^28.0.0",
     "electron-builder": "^25.1.8",
     "electron-notarize": "^1.2.2"
   },
   "scripts": {
     "start": "electron .",
+    "start-local": "npx electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
@@ -27,41 +27,35 @@
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "target": ["dmg"]
     },
     "dmg": {
       "sign": false
     },
-    "win": {
-      "target": [
-        "nsis",
-        "msi"
-      ]
-    },
-    "linux": {
-      "target": [
-        "deb",
-        "rpm",
-        "AppImage"
-      ],
-      "category": "Utility"
-    },
     "files": [
-      "**/*",
+      "main.js",
+      "preload.js",
+      "index.html",
+      "iconTemplate.png",
       "google-creds.json",
-      "icon.png",
-      "node_modules/googleapis/**/*",
-      "node_modules/electron-log/**/*"
+      "calendar-client.js"
     ],
     "extraResources": [
       {
         "from": "node_modules/",
         "to": "node_modules/",
         "filter": [
-          "**/*"
+          "electron-log/**/*",
+          "localtunnel/**/*",
+          "server-destroy/**/*"
         ]
       }
-    ]
+    ],
+    "asar": true,
+    "compression": "maximum",
+    "removePackageScripts": true,
+    "removePackageKeywords": true
   },
   "author": "",
   "license": "ISC"

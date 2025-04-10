@@ -7,6 +7,7 @@ const http = require('http');
 const destroyer = require('server-destroy');
 const localtunnel = require('localtunnel');
 const crypto = require('crypto');
+const CalendarClient = require('./calendar-client');
 
 // Configure electron-log
 log.transports.file.resolvePathFn = () => path.join(app.getPath('userData'), 'logs/main.log');
@@ -28,7 +29,7 @@ log.info(`User data path: ${app.getPath('userData')}`);
 // Use app.getAppPath() to get the base directory of your app
 const BASE_PATH = app.getAppPath();
 
-const TOKEN_PATH = path.join(BASE_PATH, 'token.json');
+const TOKEN_PATH = path.join(app.getPath('userData'), 'token.json');
 const CREDENTIALS_PATH = path.join(BASE_PATH, 'google-creds.json');
 const WEBHOOK_PORT = 8085;
 const WEBHOOK_PATH = '/calendar-webhook';
@@ -48,17 +49,7 @@ try {
   app.quit();
 }
 
-let google;
-try {
-  const { google: googleApi } = require('googleapis');
-  google = googleApi;
-  log.info('Google API loaded successfully');
-} catch (error) {
-  log.error('Error loading Google API:', error);
-}
-
-const { client_secret, client_id, redirect_uris } = credentials.installed;
-const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+const calendarClient = new CalendarClient(credentials);
 
 let lastDismissedEventId = null;
 let updateTrayInterval;
@@ -67,13 +58,16 @@ let reminderWindow;
 let webhookServer;
 let channelExpiration;
 
+let mainWindow = null;
+let tray = null;
+
 async function setupWebhook(auth) {
   // Cleanup existing webhook server if it exists
   if (webhookServer) {
     webhookServer.destroy();
   }
 
-  const calendar = google.calendar({ version: 'v3', auth });
+  const calendar = calendarClient.calendar;
 
   // Create webhook server
   webhookServer = http.createServer(async (req, res) => {
@@ -309,10 +303,16 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
 
 function createWindow() {
   log.info("Creating the main window");
+  if (mainWindow) {
+    log.info("Window already exists, showing it");
+    mainWindow.show();
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 450,
     height: 550,
-    show: false,
+    show: true,
     frame: false,
     fullscreenable: false,
     resizable: true,
@@ -325,24 +325,45 @@ function createWindow() {
   });
 
   const indexPath = path.join(BASE_PATH, 'index.html');
-
-  mainWindow.loadFile(indexPath);
   log.info(`Loading index.html from: ${indexPath}`);
+
+  try {
+    mainWindow.loadFile(indexPath);
+    log.info('File loaded successfully');
+  } catch (error) {
+    log.error('Error loading file:', error);
+  }
 
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   mainWindow.on('blur', () => {
+    log.info('Window blurred');
     if (mainWindow) mainWindow.hide();
   });
 
   mainWindow.on('closed', () => {
+    log.info('Window closed');
     mainWindow = null;
+  });
+
+  mainWindow.on('show', () => {
+    log.info('Window shown');
+  });
+
+  mainWindow.on('hide', () => {
+    log.info('Window hidden');
+  });
+
+  // Add this to ensure window is ready before being shown
+  mainWindow.once('ready-to-show', () => {
+    log.info('Window ready to show');
+    mainWindow.show();
   });
 }
 
 function authenticate() {
   return new Promise((resolve, reject) => {
-    const authUrl = oAuth2Client.generateAuthUrl({
+    const authUrl = calendarClient.auth.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/calendar.readonly']
     });
@@ -353,12 +374,23 @@ function authenticate() {
         res.end('Authentication successful! Please return to the app.');
         server.destroy();
         try {
-          const { tokens } = await oAuth2Client.getToken(qs.get('code'));
-          oAuth2Client.setCredentials(tokens);
-          fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-          resolve(oAuth2Client);
+          log.info('Getting token with code');
+          const { tokens } = await calendarClient.auth.getToken(qs.get('code'));
+          log.info('Got tokens, setting credentials');
+          calendarClient.setCredentials(tokens);
+          
+          // Add debug logging for token writing
+          log.info('Writing token to:', TOKEN_PATH);
+          try {
+            fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+            log.info('Token written successfully');
+          } catch (writeError) {
+            log.error('Error writing token:', writeError);
+          }
+          
+          resolve(calendarClient);
         } catch (error) {
-          console.error("Could not resolve the oAuth client");
+          log.error("Error in auth callback:", error);
           reject(error);
         }
       }
@@ -374,18 +406,26 @@ function authenticate() {
 function extractMeetingLink(description) {
   if (!description) return null;
 
-  const linkPatterns = [
-    /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/,
-    /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s]+/,
-    /https:\/\/[A-Za-z0-9-.]+\.webex\.com\/[^\s]+/
-  ];
+  const zoomLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/;
+  const zoomMyLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/my\/[^\s"<>]+/;
+  const teamsLinkRegex = /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^>\s]+/;
+  const googleMeetRegex = /https:\/\/meet\.google\.com\/[a-z-]+/;
 
-  for (const pattern of linkPatterns) {
-    const match = pattern.exec(description);
-    if (match) return match[0];
+  let meetingLink = null;
+
+  if (zoomLinkRegex.test(description)) {
+    meetingLink = description.match(zoomLinkRegex)[0];
+  } else if (zoomMyLinkRegex.test(description)) {
+    meetingLink = description.match(zoomMyLinkRegex)[0];
+  } else if (teamsLinkRegex.test(description)) {
+    meetingLink = description.match(teamsLinkRegex)[0];
+    // Teams links often end with '>' in the email format, remove it if present
+    meetingLink = meetingLink.replace(/[>]+$/, '');
+  } else if (googleMeetRegex.test(description)) {
+    meetingLink = description.match(googleMeetRegex)[0];
   }
 
-  return null;
+  return meetingLink;
 }
 
 function createTimeString(event) {
@@ -405,7 +445,7 @@ function createTimeString(event) {
 }
 
 async function getNextEvent(auth) {
-  const calendar = google.calendar({ version: 'v3', auth });
+  const calendar = calendarClient.calendar;
   try {
     const response = await calendar.events.list({
       calendarId: 'primary',
@@ -479,9 +519,9 @@ function elipsis(text, maxLength) {
 async function updateTrayTitle() {
   console.log("Updating tray title");
   try {
-    const events = await getNextEvent(authClient);
+    const events = await getNextEvent(calendarClient);
     const { event, nextEvent } = events;
-    let eventName = event ? `${event.summary} ${createTimeString(event)}` : 'No upcoming events';
+    let eventName = event ? `${elipsis(event.summary, 20)} ${createTimeString(event)}` : 'No upcoming events';
 
     if (event && nextEvent) {
       const now = new Date();
@@ -509,26 +549,57 @@ async function updateTrayTitle() {
 
 async function startApp() {
   try {
+    log.info('Checking for token at:', TOKEN_PATH);
     if (fs.existsSync(TOKEN_PATH)) {
-      log.info('Token found, setting credentials');
-      const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
-      oAuth2Client.setCredentials(token);
-      authClient = oAuth2Client;
+      log.info('Token found, reading credentials');
+      try {
+        const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
+        log.info('Token read successfully');
+        calendarClient.setCredentials(token);
+      } catch (readError) {
+        log.error('Error reading token:', readError);
+        log.info('Starting fresh authentication');
+        await authenticate();
+      }
     } else {
       log.info('No token found, starting authentication');
-      authClient = await authenticate();
+      await authenticate();
     }
 
     await createWindow();
     await updateTrayTitle();
 
     // Setup webhook
-    await setupWebhook(authClient);
+    await setupWebhook(calendarClient);
 
-    // updateTrayInterval = setInterval(updateTrayTitle, 30000);
+    // Add tray click handler here after window is created
+    tray.on('click', async () => {
+      log.info('Tray clicked');
+      try {
+        if (!mainWindow) {
+          log.info('mainWindow is null, creating new window');
+          await createWindow();
+          return;
+        }
+
+        log.info('mainWindow exists, isVisible:', mainWindow.isVisible());
+        if (mainWindow.isVisible()) {
+          log.info('Hiding mainWindow');
+          mainWindow.hide();
+        } else {
+          log.info('Showing mainWindow');
+          const position = getWindowPosition(tray, mainWindow);
+          log.info('Setting position to:', position);
+          mainWindow.setPosition(position.x, position.y, false);
+          mainWindow.show();
+        }
+      } catch (error) {
+        log.error('Error in tray click handler:', error);
+      }
+    });
 
   } catch (error) {
-    console.error('Error:', error);
+    log.error('Error in startApp:', error);
     tray.setTitle('Authentication Error');
   }
 }
@@ -551,9 +622,9 @@ function cleanup() {
   }
 
   // Stop webhook notifications if channel exists
-  if (authClient && channelExpiration && channelExpiration > new Date()) {
+  if (calendarClient && channelExpiration && channelExpiration > new Date()) {
     console.log("Stopping webhook notifications");
-    const calendar = google.calendar({ version: 'v3', auth: authClient });
+    const calendar = calendarClient.calendar;
     calendar.channels.stop({
       requestBody: {
         id: CHANNEL_ID,
@@ -565,30 +636,13 @@ function cleanup() {
 
 app.on('ready', async () => {
   try {
-
     let icon = trayIcon.resize({ width: 16, height: 16 });
     icon.setTemplateImage(true);
 
     tray = new Tray(icon);
     log.info('Vivcal is ready!');
 
-    if (!google) {
-      throw new Error('Google API not loaded');
-    }
-
     await startApp();
-
-    tray.on('click', () => {
-      if (mainWindow) {
-        if (mainWindow.isVisible()) {
-          mainWindow.hide();
-        } else {
-          mainWindow.show();
-          const position = getWindowPosition(tray, mainWindow);
-          mainWindow.setPosition(position.x, position.y, false);
-        }
-      }
-    });
 
     ipcMain.on('close-reminder', (event, eventId) => {
       if (reminderWindow) {
@@ -632,6 +686,8 @@ app.on('before-quit', cleanup);
 function getWindowPosition(tray, window) {
   const trayBounds = tray.getBounds();
   const windowBounds = window.getBounds();
+  log.info('Tray bounds:', trayBounds);
+  log.info('Window bounds:', windowBounds);
   const x = Math.round(trayBounds.x + (trayBounds.width / 2) - (windowBounds.width / 2));
   const y = Math.round(trayBounds.y + trayBounds.height);
   return { x, y };

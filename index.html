@@ -2,198 +2,1478 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Upcoming Meetings</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <title>VivCal</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      margin: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #1e1e1e;
-      color: #e0e0e0;
-      font-size: 12px;
-      font-weight: 400;
+    :root {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #161616;
+      --bg-tertiary: #1f1f1f;
+      --bg-hover: #2a2a2a;
+      --text-primary: #f0f0f0;
+      --text-secondary: #8a8a8a;
+      --text-muted: #5a5a5a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --accent-muted: rgba(99, 102, 241, 0.15);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: #2a2a2a;
+      --border-light: #333;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
     }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: hidden;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+
+    /* Header */
     header {
-      background-color: #252525;
-      padding: 10px;
+      background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+      padding: 14px 16px 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
     }
 
-    .app-title {
-      font-size: 16px;
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .current-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      -webkit-app-region: no-drag;
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      font-size: 13px;
+    }
+
+    .icon-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .icon-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+    }
+
+    /* Tab Navigation */
+    .tab-nav {
+      display: flex;
+      padding: 0 16px;
+      gap: 4px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: no-drag;
+    }
+
+    .tab-btn {
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      -webkit-app-region: no-drag;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+    }
+
+    /* Mini Calendar */
+    .mini-calendar {
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: no-drag;
+    }
+
+    .mini-cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .mini-cal-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .mini-cal-nav {
+      display: flex;
+      gap: 4px;
+    }
+
+    .mini-cal-nav button {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .mini-cal-nav button:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .mini-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .mini-cal-day-header {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 4px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .mini-cal-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: var(--text-secondary);
+      position: relative;
+    }
+
+    .mini-cal-day:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .mini-cal-day.other-month {
+      color: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    .mini-cal-day.today {
+      background: var(--accent);
+      color: white;
       font-weight: 600;
     }
 
-    #quit-icon {
-      color: #e0e0e0;
-      font-size: 16px;
-      cursor: pointer;
-      transition: color 0.3s ease;
+    .mini-cal-day.selected {
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-weight: 600;
     }
 
-    #quit-icon:hover {
-      color: #e74c3c;
+    .mini-cal-day.has-events::after {
+      content: '';
+      position: absolute;
+      bottom: 3px;
+      width: 4px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 50%;
     }
 
+    .mini-cal-day.today.has-events::after {
+      background: white;
+    }
+
+    /* Events Container */
     #events-container {
-      padding: 10px;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px 16px;
+      -webkit-app-region: no-drag;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #events-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #events-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #events-container::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    #events-container::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* Date Heading */
+    .date-section {
+      margin-bottom: 16px;
     }
 
     .date-heading {
-      background-color: #444;
-      color: #e0e0e0;
-      font-weight: 600;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 6px;
-      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
     }
 
-    .event-row {
-      background-color: #252525;
-      transition: background-color 0.3s ease;
-      border-radius: 6px;
-      padding: 12px;
+    .date-day {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .date-info {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+    }
+
+    .date-weekday {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .date-month-year {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .date-today-badge {
+      margin-left: auto;
+      padding: 3px 8px;
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Event Row */
+    .event-row {
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      cursor: pointer;
     }
 
     .event-row:hover {
-      background-color: #2a2a2a;
+      background: var(--bg-tertiary);
+      border-color: var(--border-light);
+      transform: translateX(2px);
     }
 
-    .time-col {
-      color: #9e9e9e;
-      width: 90px;
+    .event-row.current {
+      border-left: 3px solid var(--success);
+      background: rgba(34, 197, 94, 0.08);
+    }
+
+    .event-row.upcoming {
+      border-left: 3px solid var(--accent);
+    }
+
+    .event-time-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      min-width: 60px;
+    }
+
+    .event-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .event-duration {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .event-content {
+      flex: 1;
+      min-width: 0;
     }
 
     .event-summary {
       font-weight: 500;
-      flex-grow: 1;
-      margin: 0 10px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .event-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .event-meta i {
+      font-size: 10px;
+      opacity: 0.7;
+    }
+
+    .event-attendees {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .attendee-count {
+      background: var(--bg-hover);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 10px;
+    }
+
+    .event-actions {
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .event-row:hover .event-actions {
+      opacity: 1;
     }
 
     .join-button {
-      background-color: #3474eb;
+      background: var(--accent);
       color: white;
       border: none;
       padding: 6px 12px;
-      border-radius: 4px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      transition: background-color 0.3s;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      font-family: inherit;
     }
 
     .join-button:hover {
-      background-color: #2461d6;
+      background: var(--accent-hover);
+      transform: scale(1.02);
     }
 
-    .join-button i {
-      margin-right: 5px;
+    .join-button.zoom {
+      background: #2d8cff;
     }
 
+    .join-button.zoom:hover {
+      background: #1a7ae8;
+    }
+
+    .join-button.teams {
+      background: #5558af;
+    }
+
+    .join-button.teams:hover {
+      background: #4648a0;
+    }
+
+    .join-button.google {
+      background: #1a73e8;
+    }
+
+    .join-button.google:hover {
+      background: #1557b0;
+    }
+
+    /* Time Gap */
     .time-gap {
-      background-color: #1e1e1e;
-      border-left: 2px solid #444;
-      margin-left: 44px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      margin: 4px 0 4px 72px;
     }
 
-    #timezone-select {
-      background-color: #333;
-      color: #e0e0e0;
-      border: 1px solid #555;
+    .time-gap-line {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, var(--border-light) 0%, transparent 80%);
+      border-radius: 1px;
+    }
+
+    .time-gap-text {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-tertiary);
+      padding: 4px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    /* Timeline View */
+    #timeline-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-app-region: no-drag;
+    }
+
+    .timeline-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .timeline-nav-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      transition: all 0.15s ease;
+    }
+
+    .timeline-nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--border-light);
+    }
+
+    .timeline-date {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 140px;
+      text-align: center;
+    }
+
+    .timeline-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .timeline-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .timeline-scroll::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .timeline-grid {
+      position: relative;
+      margin: 0 16px 16px;
+      min-height: 100%;
+    }
+
+    .timeline-hour {
+      display: flex;
+      align-items: flex-start;
+      height: 60px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .timeline-hour:last-child {
+      border-bottom: none;
+    }
+
+    .timeline-hour-label {
+      width: 50px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      padding-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .timeline-hour-content {
+      flex: 1;
+      position: relative;
+      height: 100%;
+    }
+
+    .timeline-hour-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .timeline-half-line {
+      position: absolute;
+      top: 30px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--border);
+      opacity: 0.4;
+    }
+
+    .timeline-event {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+      border-radius: 6px;
+      padding: 6px 10px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      z-index: 1;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    }
+
+    .timeline-event:hover {
+      transform: translateX(2px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .timeline-event.short {
+      padding: 3px 8px;
+    }
+
+    .timeline-event-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: white;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .timeline-event-time {
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: 2px;
+    }
+
+    .timeline-event.short .timeline-event-time {
+      display: none;
+    }
+
+    .timeline-event-join {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      padding: 4px 8px;
       border-radius: 4px;
-      padding: 5px;
-      font-size: 12px;
-      margin-right: 10px;
+      font-size: 9px;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s ease;
     }
 
-    #timezone-select:focus {
-      outline: none;
-      border-color: #3474eb;
+    .timeline-event:hover .timeline-event-join {
+      opacity: 1;
     }
+
+    .timeline-event-join:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .timeline-now-line {
+      position: absolute;
+      left: 50px;
+      right: 0;
+      height: 2px;
+      background: var(--danger);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .timeline-now-line::before {
+      content: '';
+      position: absolute;
+      left: -5px;
+      top: -4px;
+      width: 10px;
+      height: 10px;
+      background: var(--danger);
+      border-radius: 50%;
+    }
+
+    .timeline-now-label {
+      position: absolute;
+      left: -48px;
+      top: -6px;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--danger);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .timeline-free-slot {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      background: rgba(34, 197, 94, 0.08);
+      border: 1px dashed rgba(34, 197, 94, 0.3);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--success);
+      font-size: 10px;
+      opacity: 0.7;
+      transition: all 0.2s ease;
+    }
+
+    .timeline-free-slot:hover {
+      opacity: 1;
+      background: rgba(34, 197, 94, 0.12);
+    }
+
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .empty-state i {
+      font-size: 40px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .empty-state p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Settings Panel */
+    .settings-panel {
+      display: none;
+      padding: 16px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1;
+      -webkit-app-region: no-drag;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .settings-panel.active {
+      display: block;
+    }
+
+    .settings-section {
+      margin-bottom: 24px;
+    }
+
+    .settings-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .settings-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+    }
+
+    .settings-item-label {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .settings-item-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* Toggle Switch */
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      background: var(--bg-hover);
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .toggle.active {
+      background: var(--accent);
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s ease;
+    }
+
+    .toggle.active::after {
+      transform: translateX(18px);
+    }
+
+    /* Select Dropdown */
+    .settings-select {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .settings-select:focus {
+      border-color: var(--accent);
+    }
+
+    /* Keyboard Shortcuts */
+    .shortcuts-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+    }
+
+    .shortcut-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .shortcut-keys {
+      display: flex;
+      gap: 4px;
+    }
+
+    .key {
+      background: var(--bg-hover);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    /* Footer */
+    footer {
+      padding: 10px 16px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      -webkit-app-region: no-drag;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sync-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .sync-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .timezone-compact {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .timezone-compact:focus {
+      border-color: var(--accent);
+    }
+
+    .timezone-compact:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-light);
+    }
+
+    /* Main Layout */
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Animations */
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .event-row {
+      animation: slideIn 0.3s ease forwards;
+    }
+
+    .date-section:nth-child(1) .event-row { animation-delay: 0.05s; }
+    .date-section:nth-child(2) .event-row { animation-delay: 0.1s; }
+    .date-section:nth-child(3) .event-row { animation-delay: 0.15s; }
   </style>
 </head>
 <body>
+  <div class="app-container">
   <header>
-    <div class="app-title">Upcoming Meetings</div>
-    <div>
-      <select id="timezone-select"></select>
-      <i id="quit-icon" class="fas fa-power-off" title="Close Vivcal"></i>
+      <div class="header-left">
+        <span class="logo">VivCal</span>
+        <span class="current-date" id="current-date"></span>
+    </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="quick-add-btn" title="Quick Add (⌥N)">
+          <i class="fas fa-plus"></i>
+        </button>
+        <button class="icon-btn" id="refresh-btn" title="Refresh">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+        <button class="icon-btn" id="settings-btn" title="Settings">
+          <i class="fas fa-cog"></i>
+        </button>
+        <button class="icon-btn danger" id="quit-btn" title="Quit VivCal">
+          <i class="fas fa-power-off"></i>
+        </button>
     </div>
   </header>
+
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="agenda">Agenda</button>
+      <button class="tab-btn" data-tab="timeline">Timeline</button>
+      <button class="tab-btn" data-tab="calendar">Calendar</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </nav>
+
+    <div class="main-content">
+      <!-- Mini Calendar (shown in calendar tab) -->
+      <div class="mini-calendar" id="mini-calendar" style="display: none;">
+        <div class="mini-cal-header">
+          <span class="mini-cal-title" id="mini-cal-title">January 2026</span>
+          <div class="mini-cal-nav">
+            <button id="prev-month"><i class="fas fa-chevron-left"></i></button>
+            <button id="today-btn" title="Today"><i class="fas fa-circle"></i></button>
+            <button id="next-month"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="mini-cal-grid" id="mini-cal-grid"></div>
+      </div>
+
+      <!-- Events Container (Agenda View) -->
   <div id="events-container"></div>
+
+      <!-- Timeline View -->
+      <div id="timeline-container" style="display: none;">
+        <div class="timeline-header">
+          <button class="timeline-nav-btn" id="timeline-prev"><i class="fas fa-chevron-left"></i></button>
+          <span class="timeline-date" id="timeline-date">Today</span>
+          <button class="timeline-nav-btn" id="timeline-next"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="timeline-scroll">
+          <div class="timeline-grid" id="timeline-grid"></div>
+        </div>
+      </div>
+
+      <!-- Settings Panel -->
+      <div class="settings-panel" id="settings-panel">
+        <div class="settings-section">
+          <div class="settings-section-title">Appearance</div>
+          <div class="settings-item">
+            <div>
+              <div class="settings-item-label">Show Mini Calendar</div>
+              <div class="settings-item-desc">Display calendar grid in agenda view</div>
+            </div>
+            <div class="toggle active" id="toggle-mini-cal"></div>
+          </div>
+          <div class="settings-item">
+            <div>
+              <div class="settings-item-label">Compact Mode</div>
+              <div class="settings-item-desc">Reduce spacing for more events</div>
+            </div>
+            <div class="toggle" id="toggle-compact"></div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Notifications</div>
+          <div class="settings-item">
+            <div>
+              <div class="settings-item-label">Reminder Window</div>
+              <div class="settings-item-desc">Show popup before meetings</div>
+            </div>
+            <div class="toggle active" id="toggle-reminder"></div>
+          </div>
+          <div class="settings-item">
+            <div>
+              <div class="settings-item-label">Reminder Time</div>
+              <div class="settings-item-desc">Minutes before meeting</div>
+            </div>
+            <select class="settings-select" id="reminder-time">
+              <option value="1">1 min</option>
+              <option value="2" selected>2 min</option>
+              <option value="5">5 min</option>
+              <option value="10">10 min</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Keyboard Shortcuts</div>
+          <div class="shortcuts-grid">
+            <div class="shortcut-item">
+              <span class="shortcut-label">Quick Add Event</span>
+              <div class="shortcut-keys">
+                <span class="key">⌥</span>
+                <span class="key">N</span>
+              </div>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-label">Toggle Panel</span>
+              <div class="shortcut-keys">
+                <span class="key">⌥</span>
+                <span class="key">C</span>
+              </div>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-label">Refresh Events</span>
+              <div class="shortcut-keys">
+                <span class="key">⌘</span>
+                <span class="key">R</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">About</div>
+          <div class="settings-item">
+            <div>
+              <div class="settings-item-label">VivCal v1.0.0</div>
+              <div class="settings-item-desc">Your intelligent calendar companion</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="footer-left">
+        <div class="sync-status">
+          <div class="sync-dot"></div>
+          <span>Synced</span>
+        </div>
+      </div>
+      <select class="timezone-compact" id="timezone-select"></select>
+    </footer>
+  </div>
+
   <script>
     const { ipcRenderer } = require('electron');
 
     let currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let cachedEvents = [];
+    let currentTab = 'agenda';
+    let selectedDate = new Date();
+    let viewingMonth = new Date();
+    let timelineDate = new Date();
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      populateTimezoneDropdown();
+      updateCurrentDate();
+      renderMiniCalendar();
+      setupEventListeners();
+    });
+
+    function setupEventListeners() {
+      // Tab navigation
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      // Header buttons
+      document.getElementById('quick-add-btn').addEventListener('click', () => {
+        ipcRenderer.send('open-quick-add');
+      });
+
+      document.getElementById('refresh-btn').addEventListener('click', () => {
+        const icon = document.querySelector('#refresh-btn i');
+        icon.style.animation = 'spin 0.5s linear';
+        setTimeout(() => icon.style.animation = '', 500);
+      });
+
+      document.getElementById('settings-btn').addEventListener('click', () => {
+        switchTab('settings');
+      });
+
+      document.getElementById('quit-btn').addEventListener('click', () => {
+        ipcRenderer.send('quit-app');
+      });
+
+      // Mini calendar navigation
+      document.getElementById('prev-month').addEventListener('click', () => {
+        viewingMonth.setMonth(viewingMonth.getMonth() - 1);
+        renderMiniCalendar();
+      });
+
+      document.getElementById('next-month').addEventListener('click', () => {
+        viewingMonth.setMonth(viewingMonth.getMonth() + 1);
+        renderMiniCalendar();
+      });
+
+      document.getElementById('today-btn').addEventListener('click', () => {
+        viewingMonth = new Date();
+        selectedDate = new Date();
+        renderMiniCalendar();
+        renderEvents(cachedEvents);
+      });
+
+      // Timeline navigation
+      document.getElementById('timeline-prev').addEventListener('click', () => {
+        timelineDate.setDate(timelineDate.getDate() - 1);
+        renderTimeline();
+      });
+
+      document.getElementById('timeline-next').addEventListener('click', () => {
+        timelineDate.setDate(timelineDate.getDate() + 1);
+        renderTimeline();
+      });
+
+      // Timezone
+      document.getElementById('timezone-select').addEventListener('change', (e) => {
+        currentTimezone = e.target.value;
+        renderEvents(cachedEvents);
+      });
+
+      // Settings toggles
+      document.querySelectorAll('.toggle').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+          toggle.classList.toggle('active');
+        });
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.metaKey && e.key === 'r') {
+          e.preventDefault();
+          document.getElementById('refresh-btn').click();
+        }
+      });
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+      });
+
+      const eventsContainer = document.getElementById('events-container');
+      const timelineContainer = document.getElementById('timeline-container');
+      const settingsPanel = document.getElementById('settings-panel');
+      const miniCalendar = document.getElementById('mini-calendar');
+
+      // Hide all
+      eventsContainer.style.display = 'none';
+      timelineContainer.style.display = 'none';
+      settingsPanel.classList.remove('active');
+      miniCalendar.style.display = 'none';
+
+      if (tab === 'settings') {
+        settingsPanel.classList.add('active');
+      } else if (tab === 'calendar') {
+        eventsContainer.style.display = 'block';
+        miniCalendar.style.display = 'block';
+      } else if (tab === 'timeline') {
+        timelineContainer.style.display = 'flex';
+        timelineDate = new Date(); // Reset to today
+        renderTimeline();
+      } else {
+        eventsContainer.style.display = 'block';
+      }
+    }
+
+    function updateCurrentDate() {
+      const now = new Date();
+      const options = { weekday: 'long', month: 'short', day: 'numeric' };
+      document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
+    }
 
     function populateTimezoneDropdown() {
       const select = document.getElementById('timezone-select');
       const timezones = [
-        { value: 'Asia/Calcutta', textContent: 'IST (India)' },
-        { value: 'America/New_York', textContent: 'ET (New York)' },
-        { value: 'America/Los_Angeles', textContent: 'PT (Los Angeles)' },
-        { value: 'America/Denver', textContent: 'MT (Denver)' },
-        { value: 'Asia/Singapore', textContent: 'SGT (Singapore)' },
-        { value: 'Europe/London', textContent: 'BST/GMT (London)' },
-        { value: 'Europe/Paris', textContent: 'CET/CEST (Paris, Berlin)' }
+        { value: 'Asia/Calcutta', label: 'IST' },
+        { value: 'America/New_York', label: 'ET' },
+        { value: 'America/Los_Angeles', label: 'PT' },
+        { value: 'America/Denver', label: 'MT' },
+        { value: 'Asia/Singapore', label: 'SGT' },
+        { value: 'Europe/London', label: 'GMT' },
+        { value: 'Europe/Paris', label: 'CET' },
+        { value: 'Asia/Tokyo', label: 'JST' },
+        { value: 'Australia/Sydney', label: 'AEDT' }
       ];
-      timezones.forEach(zone => {
+
+      timezones.forEach(tz => {
         const option = document.createElement('option');
-        option.value = zone.value;
-        option.textContent = zone.textContent;
+        option.value = tz.value;
+        option.textContent = tz.label;
+        if (tz.value === currentTimezone || currentTimezone.includes(tz.value.split('/')[1])) {
+          option.selected = true;
+        }
         select.appendChild(option);
       });
-      const currentTimezoneOption = Array.from(select.options).find(option => 
-        option.value === currentTimezone || option.textContent.includes(currentTimezone)
-      );
 
-      if (currentTimezoneOption) {
-        currentTimezoneOption.selected = true;
-      } else {
+      // Add current timezone if not in list
+      if (!timezones.find(tz => tz.value === currentTimezone)) {
         const option = document.createElement('option');
         option.value = currentTimezone;
-        option.textContent = currentTimezone;
-        select.appendChild(option);
+        option.textContent = currentTimezone.split('/').pop().replace('_', ' ');
         option.selected = true;
+        select.appendChild(option);
       }
     }
 
-    function extractMeetingLink(description) {
-      if (!description) return { link: null, type: null };
+    function renderMiniCalendar() {
+      const grid = document.getElementById('mini-cal-grid');
+      const title = document.getElementById('mini-cal-title');
+      
+      const year = viewingMonth.getFullYear();
+      const month = viewingMonth.getMonth();
+      
+      title.textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDay = firstDay.getDay();
+      const daysInMonth = lastDay.getDate();
+      
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+      const selectedStr = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+      
+      // Get dates with events
+      const eventDates = new Set();
+      cachedEvents.forEach(event => {
+        const eventDate = new Date(event.start.dateTime || event.start.date);
+        eventDates.add(`${eventDate.getFullYear()}-${eventDate.getMonth()}-${eventDate.getDate()}`);
+      });
+      
+      let html = '';
+      
+      // Day headers
+      ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(day => {
+        html += `<div class="mini-cal-day-header">${day}</div>`;
+      });
+      
+      // Previous month days
+      const prevMonth = new Date(year, month, 0);
+      const prevMonthDays = prevMonth.getDate();
+      for (let i = startDay - 1; i >= 0; i--) {
+        const day = prevMonthDays - i;
+        html += `<div class="mini-cal-day other-month">${day}</div>`;
+      }
+      
+      // Current month days
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${month}-${day}`;
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === selectedStr;
+        const hasEvents = eventDates.has(dateStr);
+        
+        let classes = 'mini-cal-day';
+        if (isToday) classes += ' today';
+        if (isSelected && !isToday) classes += ' selected';
+        if (hasEvents) classes += ' has-events';
+        
+        html += `<div class="${classes}" data-date="${year}-${month + 1}-${day}">${day}</div>`;
+      }
+      
+      // Next month days
+      const totalCells = Math.ceil((startDay + daysInMonth) / 7) * 7;
+      const nextMonthDays = totalCells - (startDay + daysInMonth);
+      for (let day = 1; day <= nextMonthDays; day++) {
+        html += `<div class="mini-cal-day other-month">${day}</div>`;
+      }
+      
+      grid.innerHTML = html;
+      
+      // Add click handlers
+      grid.querySelectorAll('.mini-cal-day:not(.other-month)').forEach(dayEl => {
+        dayEl.addEventListener('click', () => {
+          const [y, m, d] = dayEl.dataset.date.split('-').map(Number);
+          selectedDate = new Date(y, m - 1, d);
+          renderMiniCalendar();
+          filterEventsByDate();
+        });
+      });
+    }
 
-      const zoomLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/j\/[^\s"<>]+/;
-      const zoomMyLinkRegex = /https:\/\/[a-zA-Z0-9]+\.zoom\.us\/my\/[^\s"<>]+/;
-      const teamsLinkRegex = /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^>\s]+/;
-      const googleMeetRegex = /https:\/\/meet\.google\.com\/[a-z-]+/;
+    function filterEventsByDate() {
+      const filtered = cachedEvents.filter(event => {
+        const eventDate = new Date(event.start.dateTime || event.start.date);
+        return eventDate.toDateString() === selectedDate.toDateString();
+      });
+      
+      if (filtered.length > 0) {
+        renderEvents(filtered);
+      } else {
+        renderEvents(cachedEvents);
+      }
+    }
 
-      let meetingLink = null;
-      let meetingType = null;
-
-      if (zoomLinkRegex.test(description)) {
-        meetingLink = description.match(zoomLinkRegex)[0];
-        meetingType = 'zoom';
-      } else if (zoomMyLinkRegex.test(description)) {
-        meetingLink = description.match(zoomMyLinkRegex)[0];
-        meetingType = 'zoom';
-      } else if (teamsLinkRegex.test(description)) {
-        meetingLink = description.match(teamsLinkRegex)[0];
-        // Teams links often end with '>' in the email format, remove it if present
-        meetingLink = meetingLink.replace(/[>]+$/, '');
-        meetingType = 'teams';
-      } else if (googleMeetRegex.test(description)) {
-        meetingLink = description.match(googleMeetRegex)[0];
-        meetingType = 'google';
+    function extractMeetingLink(event) {
+      if (typeof event === 'string') {
+        return extractMeetingLinkFromText(event);
+      }
+      
+      if (!event || typeof event !== 'object') {
+        return { link: null, type: null };
       }
 
-      return { link: meetingLink, type: meetingType };
+      if (event.hangoutLink) {
+        return { link: event.hangoutLink, type: 'google' };
+      }
+
+      if (event.conferenceData && event.conferenceData.entryPoints) {
+        for (const entryPoint of event.conferenceData.entryPoints) {
+          if (entryPoint.entryPointType === 'video' && entryPoint.uri) {
+            return { link: entryPoint.uri, type: detectMeetingType(entryPoint.uri) };
+          }
+        }
+      }
+
+      if (event.location) {
+        const result = extractMeetingLinkFromText(event.location);
+        if (result.link) return result;
+      }
+
+      if (event.description) {
+        const result = extractMeetingLinkFromText(event.description);
+        if (result.link) return result;
+      }
+
+      return { link: null, type: null };
+    }
+
+    function extractMeetingLinkFromText(text) {
+      if (!text) return { link: null, type: null };
+
+      const patterns = [
+        { regex: /https:\/\/[a-zA-Z0-9\-]+\.zoom\.us\/[jmsw]\/[^\s"<>]+/, type: 'zoom' },
+        { regex: /https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^>\s]+/, type: 'teams' },
+        { regex: /https:\/\/teams\.live\.com\/meet\/[^\s"<>]+/, type: 'teams' },
+        { regex: /https:\/\/meet\.google\.com\/[a-z\-]+/, type: 'google' },
+        { regex: /https:\/\/[a-zA-Z0-9\-]+\.webex\.com\/[^\s"<>]+/, type: 'webex' },
+        { regex: /https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/huddle\/[^\s"<>]+/, type: 'slack' },
+        { regex: /https:\/\/discord\.(gg|com\/invite)\/[^\s"<>]+/, type: 'discord' },
+        { regex: /https:\/\/join\.skype\.com\/[^\s"<>]+/, type: 'skype' },
+      ];
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern.regex);
+        if (match) {
+          let link = match[0].replace(/[>]+$/, '').replace(/[,;\.]+$/, '');
+          return { link, type: pattern.type };
+        }
+      }
+
+      return { link: null, type: null };
+    }
+
+    function detectMeetingType(url) {
+      if (!url) return null;
+      if (url.includes('zoom.us')) return 'zoom';
+      if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'teams';
+      if (url.includes('meet.google.com')) return 'google';
+      if (url.includes('webex.com')) return 'webex';
+      if (url.includes('slack.com')) return 'slack';
+      return 'other';
     }
 
     function openMeetingLink(url, eventId) {
@@ -201,113 +1481,353 @@
     }
 
     function groupEventsByDate(events) {
-      return events.reduce((groupedEvents, event) => {
-        const startDate = new Date(event.start.dateTime || event.start.date).toLocaleDateString('en-US', { timeZone: currentTimezone });
-        if (!groupedEvents[startDate]) {
-          groupedEvents[startDate] = [];
-        }
-        groupedEvents[startDate].push(event);
-        return groupedEvents;
+      return events.reduce((grouped, event) => {
+        const date = new Date(event.start.dateTime || event.start.date).toLocaleDateString('en-US', { timeZone: currentTimezone });
+        if (!grouped[date]) grouped[date] = [];
+        grouped[date].push(event);
+        return grouped;
       }, {});
     }
 
-    function formatTime(date) {
-      return new Date(date).toLocaleTimeString('en-US', { 
+    function formatTime(dateStr) {
+      return new Date(dateStr).toLocaleTimeString('en-US', {
         timeZone: currentTimezone, 
         hour: 'numeric', 
         minute: '2-digit', 
         hour12: true 
-      }).toLowerCase();
+      }).toLowerCase().replace(' ', '');
     }
 
-    function formatTimeRange(start, end) {
-      const startTime = formatTime(start.dateTime || start.date);
-      const endTime = formatTime(end.dateTime || end.date);
-      return `${startTime}-${endTime}`;
+    function formatDuration(start, end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      const diff = (endDate - startDate) / 60000;
+      
+      if (diff < 60) return `${diff}m`;
+      const hours = Math.floor(diff / 60);
+      const mins = diff % 60;
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
     }
 
-    function formatDate(dateString) {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        timeZone: currentTimezone,
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
+    function formatDateHeading(dateStr) {
+      const date = new Date(dateStr);
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const isToday = date.toDateString() === today.toDateString();
+      const isTomorrow = date.toDateString() === tomorrow.toDateString();
+      
+      return {
+        day: date.getDate(),
+        weekday: date.toLocaleDateString('en-US', { weekday: 'long', timeZone: currentTimezone }),
+        monthYear: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: currentTimezone }),
+        isToday,
+        isTomorrow
+      };
     }
 
-    function calculateTimeDifference(endTime, nextStartTime) {
-      const diff = (new Date(nextStartTime) - new Date(endTime)) / (1000 * 60);
-      return Math.max(0, Math.min(60, diff)); // Cap at 60 minutes
+    function isCurrentEvent(event) {
+      const now = new Date();
+      const start = new Date(event.start.dateTime || event.start.date);
+      const end = new Date(event.end.dateTime || event.end.date);
+      return start <= now && end > now;
+    }
+
+    function isUpcomingEvent(event) {
+      const now = new Date();
+      const start = new Date(event.start.dateTime || event.start.date);
+      const diff = (start - now) / 60000;
+      return diff > 0 && diff <= 30;
+    }
+
+    function getMeetingIcon(type) {
+      const icons = {
+        zoom: '<i class="fa-solid fa-video"></i>',
+        teams: '<i class="fa-brands fa-microsoft"></i>',
+        google: '<i class="fa-brands fa-google"></i>',
+        webex: '<i class="fa-solid fa-users"></i>',
+        slack: '<i class="fa-brands fa-slack"></i>',
+        discord: '<i class="fa-brands fa-discord"></i>',
+        skype: '<i class="fa-brands fa-skype"></i>',
+        other: '<i class="fa-solid fa-link"></i>'
+      };
+      return icons[type] || icons.other;
     }
 
     function renderEvents(events) {
-      const groupedEvents = groupEventsByDate(events);
       const container = document.getElementById('events-container');
-      container.innerHTML = Object.entries(groupedEvents).map(([date, eventsForDate]) => {
-        let eventsHtml = '';
-        eventsForDate.forEach((e, index) => {
-          const { link: meetingLink, type: meetingType } = e.hangoutLink ? 
-            { link: e.hangoutLink, type: 'google' } : 
-            extractMeetingLink(e.description) || {};
+      
+      if (!events || events.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="far fa-calendar-check"></i>
+            <h3>No upcoming events</h3>
+            <p>Press ⌥N to quickly add a new event</p>
+          </div>
+        `;
+        return;
+      }
 
-          let meetingIcon = '';
-          switch (meetingType) {
-            case 'zoom':
-              meetingIcon = '<i class="fa-solid fa-video"></i>';
-              break;
-            case 'teams':
-              meetingIcon = '<i class="fa-brands fa-microsoft"></i>';
-              break;
-            case 'google':
-              meetingIcon = '<i class="fa-brands fa-google"></i>';
-              break;
+      const grouped = groupEventsByDate(events);
+      
+      container.innerHTML = Object.entries(grouped).map(([date, dateEvents]) => {
+        const heading = formatDateHeading(date);
+        
+        const eventsHtml = dateEvents.map((event, index) => {
+          const { link: meetingLink, type: meetingType } = extractMeetingLink(event);
+          const isCurrent = isCurrentEvent(event);
+          const isUpcoming = isUpcomingEvent(event);
+          
+          let rowClass = 'event-row';
+          if (isCurrent) rowClass += ' current';
+          else if (isUpcoming) rowClass += ' upcoming';
+          
+          const startTime = formatTime(event.start.dateTime || event.start.date);
+          const duration = formatDuration(
+            event.start.dateTime || event.start.date,
+            event.end.dateTime || event.end.date
+          );
+          
+          const attendeeCount = event.attendees ? event.attendees.length : 0;
+          
+          let joinBtn = '';
+          if (meetingLink) {
+            const btnClass = meetingType ? `join-button ${meetingType}` : 'join-button';
+            joinBtn = `
+              <button class="${btnClass}" onclick="openMeetingLink('${meetingLink}', '${event.id}')">
+                ${getMeetingIcon(meetingType)} Join
+              </button>
+            `;
           }
-
-          const joinButton = meetingLink ? 
-            `<button class="join-button" onclick="openMeetingLink('${meetingLink}', '${e.id}')">${meetingIcon} Join</button>` : 
-            '';
-
-          eventsHtml += `
-            <div class="event-row">
-              <span class="time-col">${formatTimeRange(e.start, e.end)}</span>
-              <span class="event-summary">${e.summary}</span>
-              <span>${joinButton}</span>
-            </div>`;
-
-          if (index < eventsForDate.length - 1) {
-            const nextEvent = eventsForDate[index + 1];
-            const timeDiff = calculateTimeDifference(e.end.dateTime, nextEvent.start.dateTime);
-            if (timeDiff > 0) {
-              eventsHtml += `<div class="time-gap" style="height: ${timeDiff/2}px;"></div>`;
+          
+          let html = `
+            <div class="${rowClass}">
+              <div class="event-time-block">
+                <span class="event-time">${startTime}</span>
+                <span class="event-duration">${duration}</span>
+              </div>
+              <div class="event-content">
+                <div class="event-summary">${event.summary || 'Untitled'}</div>
+                <div class="event-meta">
+                  ${event.location ? `<span><i class="fas fa-map-marker-alt"></i> ${event.location.substring(0, 20)}${event.location.length > 20 ? '...' : ''}</span>` : ''}
+                  ${attendeeCount > 0 ? `<span class="event-attendees"><i class="fas fa-users"></i> <span class="attendee-count">${attendeeCount}</span></span>` : ''}
+                </div>
+              </div>
+              <div class="event-actions">
+                ${joinBtn}
+              </div>
+            </div>
+          `;
+          
+          // Add time gap indicator
+          if (index < dateEvents.length - 1) {
+            const nextEvent = dateEvents[index + 1];
+            const endTime = new Date(event.end.dateTime || event.end.date);
+            const nextStart = new Date(nextEvent.start.dateTime || nextEvent.start.date);
+            const gap = (nextStart - endTime) / 60000;
+            
+            if (gap >= 1 && gap < 480) { // Show gaps from 1 min to 8 hours
+              let gapText;
+              if (gap < 60) {
+                gapText = `${Math.round(gap)}m break`;
+              } else {
+                const hours = Math.floor(gap / 60);
+                const mins = Math.round(gap % 60);
+                gapText = mins > 0 ? `${hours}h ${mins}m break` : `${hours}h break`;
+              }
+              html += `
+                <div class="time-gap">
+                  <div class="time-gap-line"></div>
+                  <span class="time-gap-text">${gapText}</span>
+                </div>
+              `;
             }
           }
-        });
+          
+          return html;
+        }).join('');
 
         return `
-          <div class="date-heading">${formatDate(date)}</div>
-          ${eventsHtml}`;
+          <div class="date-section">
+            <div class="date-heading">
+              <span class="date-day">${heading.day}</span>
+              <div class="date-info">
+                <span class="date-weekday">${heading.weekday}</span>
+                <span class="date-month-year">${heading.monthYear}</span>
+              </div>
+              ${heading.isToday ? '<span class="date-today-badge">Today</span>' : ''}
+              ${heading.isTomorrow ? '<span class="date-today-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">Tomorrow</span>' : ''}
+            </div>
+            ${eventsHtml}
+          </div>
+        `;
       }).join('');
     }
 
-    let cachedEvents = [];
+    function renderTimeline() {
+      const grid = document.getElementById('timeline-grid');
+      const dateLabel = document.getElementById('timeline-date');
+      
+      const today = new Date();
+      const isToday = timelineDate.toDateString() === today.toDateString();
+      const isTomorrow = timelineDate.toDateString() === new Date(today.getTime() + 86400000).toDateString();
+      const isYesterday = timelineDate.toDateString() === new Date(today.getTime() - 86400000).toDateString();
+      
+      if (isToday) {
+        dateLabel.textContent = 'Today';
+      } else if (isTomorrow) {
+        dateLabel.textContent = 'Tomorrow';
+      } else if (isYesterday) {
+        dateLabel.textContent = 'Yesterday';
+      } else {
+        dateLabel.textContent = timelineDate.toLocaleDateString('en-US', { 
+          weekday: 'short', 
+          month: 'short', 
+          day: 'numeric',
+          timeZone: currentTimezone
+        });
+      }
+      
+      // Filter events for this day
+      const dayEvents = cachedEvents.filter(event => {
+        const eventDate = new Date(event.start.dateTime || event.start.date);
+        return eventDate.toDateString() === timelineDate.toDateString();
+      });
+      
+      // Build hour grid (6am to 10pm for reasonable view)
+      const startHour = 6;
+      const endHour = 22;
+      let html = '';
+      
+      for (let hour = startHour; hour <= endHour; hour++) {
+        const hourLabel = hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`;
+        html += `
+          <div class="timeline-hour" data-hour="${hour}">
+            <div class="timeline-hour-label">${hourLabel}</div>
+            <div class="timeline-hour-content">
+              <div class="timeline-half-line"></div>
+            </div>
+          </div>
+        `;
+      }
+      
+      grid.innerHTML = html;
+      
+      // Calculate pixel position for a time
+      const hourHeight = 60; // matches CSS
+      const getPositionForTime = (date) => {
+        const hours = date.getHours() + date.getMinutes() / 60;
+        return (hours - startHour) * hourHeight;
+      };
+      
+      // Add events
+      dayEvents.forEach(event => {
+        const start = new Date(event.start.dateTime || event.start.date);
+        const end = new Date(event.end.dateTime || event.end.date);
+        
+        // Skip all-day events for now (they don't have dateTime)
+        if (!event.start.dateTime) return;
+        
+        const top = getPositionForTime(start);
+        const bottom = getPositionForTime(end);
+        const height = Math.max(bottom - top, 24); // Minimum height
+        
+        const { link: meetingLink } = extractMeetingLink(event);
+        const isShort = height < 40;
+        
+        const startTime = formatTime(event.start.dateTime);
+        const endTime = formatTime(event.end.dateTime);
+        
+        const eventEl = document.createElement('div');
+        eventEl.className = `timeline-event${isShort ? ' short' : ''}`;
+        eventEl.style.top = `${top}px`;
+        eventEl.style.height = `${height}px`;
+        eventEl.innerHTML = `
+          <div class="timeline-event-title">${event.summary || 'Untitled'}</div>
+          ${!isShort ? `<div class="timeline-event-time">${startTime} - ${endTime}</div>` : ''}
+          ${meetingLink ? `<button class="timeline-event-join" onclick="event.stopPropagation(); openMeetingLink('${meetingLink}', '${event.id}')">Join</button>` : ''}
+        `;
+        
+        grid.appendChild(eventEl);
+      });
+      
+      // Add "now" line if viewing today
+      if (isToday) {
+        const now = new Date();
+        const nowPosition = getPositionForTime(now);
+        
+        if (nowPosition >= 0 && nowPosition <= (endHour - startHour) * hourHeight) {
+          const nowLine = document.createElement('div');
+          nowLine.className = 'timeline-now-line';
+          nowLine.style.top = `${nowPosition}px`;
+          nowLine.innerHTML = `<span class="timeline-now-label">${formatTime(now.toISOString())}</span>`;
+          grid.appendChild(nowLine);
+          
+          // Scroll to current time
+          setTimeout(() => {
+            const scrollContainer = document.querySelector('.timeline-scroll');
+            scrollContainer.scrollTop = Math.max(0, nowPosition - 100);
+          }, 100);
+        }
+      }
+      
+      // Find and show free slots (gaps > 30 min)
+      if (dayEvents.length > 0) {
+        const sortedEvents = dayEvents
+          .filter(e => e.start.dateTime)
+          .sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime));
+        
+        let lastEnd = new Date(timelineDate);
+        lastEnd.setHours(startHour, 0, 0, 0);
+        
+        sortedEvents.forEach(event => {
+          const eventStart = new Date(event.start.dateTime);
+          const gap = (eventStart - lastEnd) / 60000; // minutes
+          
+          if (gap >= 30) {
+            const top = getPositionForTime(lastEnd);
+            const height = getPositionForTime(eventStart) - top;
+            
+            if (height > 20) {
+              const freeSlot = document.createElement('div');
+              freeSlot.className = 'timeline-free-slot';
+              freeSlot.style.top = `${top}px`;
+              freeSlot.style.height = `${height}px`;
+              
+              const hours = Math.floor(gap / 60);
+              const mins = Math.round(gap % 60);
+              const gapText = hours > 0 ? `${hours}h ${mins}m free` : `${mins}m free`;
+              freeSlot.textContent = gapText;
+              
+              grid.appendChild(freeSlot);
+            }
+          }
+          
+          lastEnd = new Date(event.end.dateTime);
+        });
+      }
+    }
 
+    // IPC event handlers
     ipcRenderer.on('update-events', (event, events) => {
       cachedEvents = events;
       renderEvents(events);
+      renderMiniCalendar();
+      if (currentTab === 'timeline') {
+        renderTimeline();
+      }
     });
 
-    document.getElementById('quit-icon').addEventListener('click', () => {
-      ipcRenderer.send('quit-app');
-    });
-
-    document.getElementById('timezone-select').addEventListener('change', (event) => {
-      currentTimezone = event.target.value;
-      renderEvents(cachedEvents);
-    });
-
-    // Initialize timezone dropdown
-    populateTimezoneDropdown();
+    // Add spin animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>

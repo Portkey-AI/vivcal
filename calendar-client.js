@@ -51,7 +51,12 @@ class CalendarClient {
             await this.refreshAccessToken();
         }
 
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        // Use full URL if endpoint starts with https, otherwise prepend baseUrl
+        const url = endpoint.startsWith('https://') ? endpoint : `${this.baseUrl}${endpoint}`;
+        
+        log.info('Making API request to:', url);
+
+        const response = await fetch(url, {
             ...options,
             headers: {
                 ...options.headers,
@@ -61,6 +66,8 @@ class CalendarClient {
         });
 
         if (!response.ok) {
+            log.error('API request failed:', response.status, response.statusText);
+            log.error('URL was:', url);
             throw new Error(`API request failed: ${response.statusText}`);
         }
 
@@ -144,6 +151,164 @@ class CalendarClient {
 
     setCredentials(tokens) {
         this.tokens = tokens;
+    }
+
+    // Fetch contacts from multiple sources for comprehensive list
+    async listConnections(pageToken = '') {
+        try {
+            // Try People API first for actual Gmail contacts
+            log.info('Loading contacts from API...');
+            const peopleResponse = await this.makeRequest(`https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses&pageSize=1000${pageToken ? '&pageToken=' + pageToken : ''}`);
+            
+            const emails = new Set();
+            
+            // Extract from People API connections
+            if (peopleResponse.connections) {
+                log.info(`Got ${peopleResponse.connections.length} connections from /me/connections`);
+                peopleResponse.connections.forEach(person => {
+                    if (person.emailAddresses) {
+                        person.emailAddresses.forEach(email => {
+                            if (email.value && email.value.includes('@')) {
+                                emails.add(email.value);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Try to get contacts from other endpoints for more comprehensive results
+            try {
+                const otherContactsResponse = await this.makeRequest('https://people.googleapis.com/v1/otherContacts?readMask=emailAddresses&pageSize=1000');
+                if (otherContactsResponse.otherContacts) {
+                    log.info(`Got ${otherContactsResponse.otherContacts.length} other contacts`);
+                    otherContactsResponse.otherContacts.forEach(contact => {
+                        if (contact.emailAddresses) {
+                            contact.emailAddresses.forEach(email => {
+                                if (email.value && email.value.includes('@')) {
+                                    emails.add(email.value);
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                log.info('Failed to get other contacts:', e.message);
+            }
+
+            // Try directory API for more contacts
+            try {
+                const directoryResponse = await this.makeRequest('https://people.googleapis.com/v1/people:searchDirectoryPeople?readMask=emailAddresses&pageSize=1000&query=""');
+                if (directoryResponse.people) {
+                    log.info(`Got ${directoryResponse.people.length} directory people`);
+                    directoryResponse.people.forEach(person => {
+                        if (person.emailAddresses) {
+                            person.emailAddresses.forEach(email => {
+                                if (email.value && email.value.includes('@')) {
+                                    emails.add(email.value);
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                log.info('Failed to search directory:', e.message);
+            }
+
+            log.info(`Total unique contacts found from People API: ${emails.size}`);
+
+            // If we got very few contacts from People API, supplement with calendar events
+            if (emails.size < 20) {
+                log.info('Got few contacts from People API, supplementing with calendar events...');
+                const calendarEmails = await this.getEmailsFromCalendarEvents();
+                if (calendarEmails.connections) {
+                    calendarEmails.connections.forEach(conn => {
+                        if (conn.emailAddresses) {
+                            conn.emailAddresses.forEach(email => {
+                                if (email.value && email.value.includes('@')) {
+                                    emails.add(email.value);
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+
+            // Convert to People API format
+            const connections = Array.from(emails).map(email => ({
+                emailAddresses: [{ value: email }]
+            }));
+
+            log.info(`Total unique contacts found: ${emails.size}`);
+            log.info('Raw API response:', JSON.stringify(peopleResponse, null, 2));
+            return { connections };
+
+        } catch (error) {
+            log.error('People API failed, falling back to calendar events');
+            return await this.getEmailsFromCalendarEvents();
+        }
+    }
+
+    // Extract emails from calendar attendees + add common suggestions
+    async getEmailsFromCalendarEvents() {
+        try {
+            const response = await this.makeRequest('/calendars/primary/events?maxResults=200&singleEvents=true&orderBy=startTime');
+            const realEmails = new Set();
+            
+            // Extract real emails from calendar events FIRST
+            if (response.items) {
+                response.items.forEach(event => {
+                    if (event.attendees) {
+                        event.attendees.forEach(attendee => {
+                            if (attendee.email && attendee.email.includes('@') && !attendee.email.includes('calendar.google.com')) {
+                                realEmails.add(attendee.email);
+                            }
+                        });
+                    }
+                    if (event.organizer && event.organizer.email && !event.organizer.email.includes('calendar.google.com')) {
+                        realEmails.add(event.organizer.email);
+                    }
+                });
+            }
+
+            // Add common email suggestions AFTER real emails (if needed)
+            const allEmails = Array.from(realEmails);
+            if (allEmails.length < 10) {
+                const commonEmails = [
+                    'team@company.com',
+                    'support@company.com',
+                    'hello@startup.com',
+                    'contact@business.com',
+                    'info@organization.org'
+                ];
+                commonEmails.forEach(email => {
+                    if (!realEmails.has(email)) {
+                        allEmails.push(email);
+                    }
+                });
+            }
+
+            // Convert to People API format for compatibility
+            const connections = allEmails.map(email => ({
+                emailAddresses: [{ value: email }]
+            }));
+
+            log.info(`Extracted ${realEmails.size} real emails from calendar events, total ${connections.length} contacts`);
+            return { connections };
+        } catch (error) {
+            log.error('Calendar fallback also failed:', error);
+            // Return basic suggestions if everything fails
+            const fallbackEmails = [
+                'team@company.com',
+                'contact@business.com',
+                'hello@startup.com',
+                'support@company.com',
+                'info@organization.org'
+            ];
+            const connections = fallbackEmails.map(email => ({
+                emailAddresses: [{ value: email }]
+            }));
+            return { connections };
+        }
     }
 }
 

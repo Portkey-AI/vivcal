@@ -4,6 +4,8 @@
   "description": "",
   "main": "main.js",
   "dependencies": {
+    "chrono-node": "^2.8.3",
+    "dotenv": "^16.5.0",
     "electron-log": "^5.2.2",
     "localtunnel": "^2.0.2",
     "node-fetch": "^3.3.2",
@@ -28,7 +30,9 @@
       "entitlementsInherit": "entitlements.mac.plist",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "target": ["dmg"]
+      "target": [
+        "dmg"
+      ]
     },
     "dmg": {
       "sign": false

@@ -10,8 +10,8 @@ const localtunnel = require('localtunnel');
 const crypto = require('crypto');
 const CalendarClient = require('./calendar-client');
 const chrono = require('chrono-node');
-require('dotenv').config()
-// lightweight dynamic import of node-fetch (keeps commonjs)
+require('dotenv').config();
+// Dynamic import of node-fetch for Portkey API calls
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 // Configure electron-log
@@ -47,11 +47,31 @@ const trayIcon = nativeImage.createFromPath(
 // Read credentials
 let credentials;
 try {
-  credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
-  log.info('Credentials loaded successfully');
+  if (!fs.existsSync(CREDENTIALS_PATH)) {
+    log.error('Missing google-creds.json file!');
+    log.error('Run "npm run setup" to configure VivCal, or see README.md for manual setup.');
+    const { dialog } = require('electron');
+    app.whenReady().then(() => {
+      dialog.showErrorBox(
+        'VivCal Setup Required',
+        'Missing google-creds.json file.\n\nRun "npm run setup" in terminal to configure VivCal, or see README.md for manual setup instructions.'
+      );
+      app.quit();
+    });
+  } else {
+    credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+    log.info('Credentials loaded successfully');
+  }
 } catch (error) {
   log.error('Error loading credentials:', error);
-  app.quit();
+  const { dialog } = require('electron');
+  app.whenReady().then(() => {
+    dialog.showErrorBox(
+      'VivCal Configuration Error',
+      `Failed to read google-creds.json: ${error.message}\n\nRun "npm run setup" to reconfigure.`
+    );
+    app.quit();
+  });
 }
 
 const calendarClient = new CalendarClient(credentials);
@@ -59,6 +79,18 @@ const calendarClient = new CalendarClient(credentials);
 let lastDismissedEventId = null;
 let updateTrayInterval;
 let reminderWindow;
+
+// Selected timezone for tray display (null = system timezone, don't show time)
+let selectedTimezone = null;
+const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// Event caching to reduce API calls and UI flicker
+let cachedEvents = [];
+let lastEventHash = null;
+let lastTrayTitle = null;
+let lastFetchTime = 0;
+const MIN_FETCH_INTERVAL = 5000; // Minimum 5 seconds between API calls
+let pendingUpdate = null; // Debounce webhook updates
 
 let webhookServer;
 let channelExpiration;
@@ -72,54 +104,82 @@ let quickAddWindow = null;
 // Cached contacts list
 let cachedEmails = null;
 
+// Reminder window position persistence
+let reminderWindowPosition = null;
+const REMINDER_POSITION_FILE = path.join(app.getPath('userData'), 'reminder-position.json');
+
+function loadReminderPosition() {
+  try {
+    if (fs.existsSync(REMINDER_POSITION_FILE)) {
+      reminderWindowPosition = JSON.parse(fs.readFileSync(REMINDER_POSITION_FILE, 'utf8'));
+    }
+  } catch (e) {
+    log.warn('Could not load reminder position:', e.message);
+  }
+}
+
+function saveReminderPosition() {
+  if (reminderWindow && !reminderWindow.isDestroyed()) {
+    try {
+      const bounds = reminderWindow.getBounds();
+      reminderWindowPosition = { x: bounds.x, y: bounds.y };
+      fs.writeFileSync(REMINDER_POSITION_FILE, JSON.stringify(reminderWindowPosition));
+    } catch (e) {
+      log.warn('Could not save reminder position:', e.message);
+    }
+  }
+}
+
 // ---------------- Portkey Quick-Add API ------------------
-const PORTKEY_URL = 'https://api.portkey.ai/v1/prompts/pp-dateparse-d0b165/completions';
 const PORTKEY_API_KEY = process.env.PORTKEY_API_KEY;
+const PORTKEY_PROMPT_ID = process.env.PORTKEY_PROMPT_ID || 'pp-dateparse-d0b165';
+
+if (PORTKEY_API_KEY) {
+  log.info('Portkey API key configured - using AI-powered date parsing');
+} else {
+  log.info('PORTKEY_API_KEY not set - Quick Add will use chrono-node for date parsing');
+}
 
 async function callPortkey(text) {
-  try {
-    const body = {
-      stream: false,
-      variables: {
-        today: new Date().toISOString(),
-        input: text
-      }
-    };
-
-    const res = await fetch(PORTKEY_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-portkey-api-key': PORTKEY_API_KEY
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!res.ok) {
-      throw new Error(`Portkey request failed: ${res.status} ${res.statusText}`);
-    }
-
-    const data = await res.json();
-
-    // Portkey returns OpenAI-style completion envelope; extract JSON from content
-    let messageContent = data?.choices?.[0]?.message?.content || '';
-    messageContent = messageContent.trim();
-    if (messageContent.startsWith('```')) {
-      // strip markdown fences if present
-      messageContent = messageContent.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
-    }
-    let parsed;
-    try {
-      parsed = JSON.parse(messageContent);
-    } catch (e) {
-      log.error('Failed to parse Portkey content:', messageContent);
-      throw e;
-    }
-    return parsed;
-  } catch (err) {
-    log.error('Portkey API error:', err);
-    throw err;
+  if (!PORTKEY_API_KEY) {
+    throw new Error('Portkey API key not configured');
   }
+
+  const body = {
+    stream: false,
+    variables: {
+      today: new Date().toISOString(),
+      input: text
+    }
+  };
+
+  const res = await fetch(`https://api.portkey.ai/v1/prompts/${PORTKEY_PROMPT_ID}/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-portkey-api-key': PORTKEY_API_KEY
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    log.error('Portkey API error:', res.status, errorBody);
+    throw new Error(`Portkey request failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  // Extract JSON from the LLM response
+  let messageContent = data?.choices?.[0]?.message?.content || '';
+  messageContent = messageContent.trim();
+  
+  // Strip markdown code fences if present
+  if (messageContent.startsWith('```')) {
+    messageContent = messageContent.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
+  }
+  
+  return JSON.parse(messageContent);
 }
 
 function isoToRFC(dateStr) {
@@ -127,17 +187,7 @@ function isoToRFC(dateStr) {
 }
 
 function buildCalendarUrlFromPortkey(eventObj) {
-  const {
-    summary,
-    start,
-    end,
-    timezone,
-    details,
-    location,
-    guests,
-    recurrence,
-    calendarId
-  } = eventObj;
+  const { summary, start, end, timezone, details, location, guests, recurrence, calendarId } = eventObj;
 
   if (!summary || !start || !end) {
     throw new Error('Portkey response missing required fields');
@@ -160,7 +210,12 @@ function buildCalendarUrlFromPortkey(eventObj) {
 async function setupWebhook(auth) {
   // Cleanup existing webhook server if it exists
   if (webhookServer) {
-    webhookServer.destroy();
+    try {
+      webhookServer.destroy();
+    } catch (e) {
+      log.warn('Error destroying previous webhook server:', e.message);
+    }
+    webhookServer = null;
   }
 
   const calendar = calendarClient.calendar;
@@ -176,8 +231,8 @@ async function setupWebhook(auth) {
         res.writeHead(200);
         res.end();
 
-        // Update tray on notification
-        await updateTrayTitle();
+        // Debounce rapid webhook notifications
+        scheduleUpdate();
       });
     }
   });
@@ -185,10 +240,33 @@ async function setupWebhook(auth) {
   // Enable server cleanup on destroy
   destroyer(webhookServer);
   
-  // Start the server
-  webhookServer.listen(WEBHOOK_PORT, () => {
-    log.info(`Webhook server is running on port ${WEBHOOK_PORT}`);
-  });
+  // Start the server with error handling for port conflicts
+  try {
+    await new Promise((resolve, reject) => {
+      webhookServer.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          log.warn(`Port ${WEBHOOK_PORT} in use, webhook disabled - using polling only`);
+          resolve(); // Don't reject, just continue without webhook
+        } else {
+          reject(err);
+        }
+      });
+      webhookServer.listen(WEBHOOK_PORT, () => {
+        log.info(`Webhook server is running on port ${WEBHOOK_PORT}`);
+        resolve();
+      });
+    });
+  } catch (err) {
+    log.error('Failed to start webhook server:', err);
+    fallbackToPolling();
+    return;
+  }
+  
+  // If server didn't start (port in use), skip tunnel setup
+  if (!webhookServer.listening) {
+    fallbackToPolling();
+    return;
+  }
 
   // Setup localtunnel
   try {
@@ -296,16 +374,20 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
     return;
   }
 
+  // Load saved position or use default centered position
+  loadReminderPosition();
+  
   const currDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const { workArea } = currDisplay;
 
-  let xcoord = Math.round(workArea.x + (workArea.width - 380) / 2);
+  let xcoord = reminderWindowPosition?.x ?? Math.round(workArea.x + (workArea.width - 380) / 2);
+  let ycoord = reminderWindowPosition?.y ?? (workArea.y + 40);
 
   reminderWindow = new BrowserWindow({
-    width: 380,
-    height: 180,
+    width: 320,
+    height: 140,
     x: xcoord,
-    y: workArea.y + 40,
+    y: ycoord,
     alwaysOnTop: true,
     frame: false,
     focusable: true,
@@ -319,12 +401,48 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
       enableRemoteModule: false
     }
   });
+  
+  // Save position when window is moved
+  reminderWindow.on('moved', () => {
+    saveReminderPosition();
+  });
 
   const windowHTML = `
   <html>
     <head>
-      <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
+        :root {
+          --bg-primary: #0a0a0a;
+          --bg-secondary: #111111;
+          --bg-tertiary: #171717;
+          --bg-hover: #1c1c1c;
+          --text-primary: #e5e5e5;
+          --text-secondary: #737373;
+          --text-muted: #525252;
+          --accent: #0096bb;
+          --success: #10b981;
+          --success-soft: rgba(16, 185, 129, 0.12);
+          --border: #1f1f1f;
+          --shadow: rgba(0, 0, 0, 0.5);
+        }
+
+        @media (prefers-color-scheme: light) {
+          :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #ebebeb;
+            --bg-hover: #e0e0e0;
+            --text-primary: #171717;
+            --text-secondary: #525252;
+            --text-muted: #737373;
+            --accent: #0096bb;
+            --success: #059669;
+            --success-soft: rgba(5, 150, 105, 0.08);
+            --border: #e5e5e5;
+            --shadow: rgba(0, 0, 0, 0.15);
+          }
+        }
+
         * {
           box-sizing: border-box;
           margin: 0;
@@ -332,17 +450,18 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
         }
         
         body {
-          font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
           background: transparent;
           overflow: hidden;
+          -webkit-font-smoothing: antialiased;
         }
         
         .container {
-          background: linear-gradient(145deg, #1a1a1a 0%, #0d0d0d 100%);
-          border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-          padding: 16px;
+          background: var(--bg-primary);
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          box-shadow: 0 16px 48px var(--shadow);
+          padding: 14px 16px;
           height: 100vh;
           display: flex;
           flex-direction: column;
@@ -352,59 +471,45 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
         .header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
+          align-items: center;
+          margin-bottom: 10px;
         }
         
         .time-badge {
-          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-          color: white;
-          padding: 4px 10px;
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.8; }
-        }
-        
-        .time-badge::before {
-          content: '⏰';
+          background: var(--success-soft);
+          color: var(--success);
+          padding: 3px 8px;
+          border-radius: 4px;
           font-size: 10px;
+          font-weight: 500;
         }
         
         .close-btn {
           -webkit-app-region: no-drag;
-          width: 24px;
-          height: 24px;
-          border-radius: 8px;
+          width: 20px;
+          height: 20px;
+          border-radius: 5px;
           border: none;
-          background: rgba(255, 255, 255, 0.05);
-          color: rgba(255, 255, 255, 0.5);
+          background: transparent;
+          color: var(--text-muted);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 14px;
-          transition: all 0.2s ease;
+          transition: all 0.1s ease;
         }
         
         .close-btn:hover {
-          background: rgba(239, 68, 68, 0.2);
+          background: var(--bg-hover);
           color: #ef4444;
         }
         
         .event-title {
-          font-size: 16px;
-          font-weight: 600;
-          color: #f0f0f0;
-          margin-bottom: 16px;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-primary);
+          margin-bottom: 14px;
           line-height: 1.3;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -415,46 +520,44 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
         
         .actions {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           margin-top: auto;
           -webkit-app-region: no-drag;
         }
         
         .btn {
           flex: 1;
-          padding: 10px 16px;
-          border-radius: 10px;
+          padding: 8px 12px;
+          border-radius: 6px;
           border: none;
-          font-size: 12px;
-          font-weight: 600;
+          font-size: 11px;
+          font-weight: 500;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.1s ease;
           font-family: inherit;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 6px;
+          gap: 5px;
         }
         
         .btn-join {
-          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+          background: var(--accent);
           color: white;
         }
         
         .btn-join:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+          background: #00a8d0;
         }
         
         .btn-snooze {
-          background: rgba(255, 255, 255, 0.08);
-          color: #a0a0a0;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: var(--bg-tertiary);
+          color: var(--text-secondary);
         }
         
         .btn-snooze:hover {
-          background: rgba(255, 255, 255, 0.12);
-          color: #f0f0f0;
+          background: var(--bg-hover);
+          color: var(--text-primary);
         }
         
         .snooze-dropdown {
@@ -467,42 +570,36 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
           bottom: 100%;
           left: 0;
           right: 0;
-          background: #1a1a1a;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-          padding: 6px;
-          margin-bottom: 6px;
-          box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+          background: var(--bg-secondary);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 4px;
+          margin-bottom: 4px;
+          box-shadow: 0 -8px 24px var(--shadow);
         }
         
         .snooze-options.show {
           display: block;
-          animation: slideUp 0.2s ease;
+          animation: slideUp 0.1s ease;
         }
         
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         
         .snooze-option {
-          padding: 8px 12px;
-          border-radius: 6px;
+          padding: 6px 10px;
+          border-radius: 4px;
           cursor: pointer;
           font-size: 11px;
-          color: #a0a0a0;
-          transition: all 0.15s ease;
+          color: var(--text-secondary);
+          transition: all 0.1s ease;
         }
         
         .snooze-option:hover {
-          background: rgba(99, 102, 241, 0.2);
-          color: #818cf8;
+          background: var(--bg-hover);
+          color: var(--text-primary);
         }
         
         .no-meeting {
@@ -510,19 +607,8 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #5a5a5a;
+          color: var(--text-muted);
           font-size: 11px;
-        }
-        
-        .drag-hint {
-          position: absolute;
-          bottom: 6px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 40px;
-          height: 4px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 2px;
         }
       </style>
     </head>
@@ -537,25 +623,19 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
         
         <div class="actions">
           ${meetingLink ? `
-            <button class="btn btn-join" onclick="openMeetingLink('${meetingLink}')">
-              <span>🎥</span> Join Meeting
-            </button>
+            <button class="btn btn-join" onclick="openMeetingLink('${meetingLink}')">Join</button>
           ` : `
             <div class="no-meeting">No meeting link</div>
           `}
           <div class="snooze-dropdown">
-            <button class="btn btn-snooze" onclick="toggleSnooze()">
-              <span>⏰</span> Snooze
-            </button>
+            <button class="btn btn-snooze" onclick="toggleSnooze()">Snooze</button>
             <div class="snooze-options" id="snooze-options">
-              <div class="snooze-option" onclick="snoozeFor(1)">1 minute</div>
-              <div class="snooze-option" onclick="snoozeFor(5)">5 minutes</div>
-              <div class="snooze-option" onclick="snoozeFor(10)">10 minutes</div>
+              <div class="snooze-option" onclick="snoozeFor(1)">1 min</div>
+              <div class="snooze-option" onclick="snoozeFor(5)">5 min</div>
+              <div class="snooze-option" onclick="snoozeFor(10)">10 min</div>
             </div>
           </div>
         </div>
-        
-        <div class="drag-hint"></div>
       </div>
       
       <script>
@@ -578,17 +658,14 @@ function createReminderWindow(eventDetails, meetingLink, eventId) {
           window.api.snoozeReminder(eventId, minutes);
         }
         
-        // Close snooze dropdown when clicking outside
         document.addEventListener('click', (e) => {
           if (!e.target.closest('.snooze-dropdown')) {
             document.getElementById('snooze-options').classList.remove('show');
           }
         });
         
-        // Update content handler
         window.api && window.api.onUpdateContent && window.api.onUpdateContent((title, link, id) => {
           document.getElementById('event-title').textContent = title;
-          // Update meeting link button if needed
         });
       </script>
     </body>
@@ -611,8 +688,8 @@ function createWindow() {
   }
 
   mainWindow = new BrowserWindow({
-    width: 450,
-    height: 550,
+    width: 380,
+    height: 480,
     show: true,
     frame: false,
     fullscreenable: false,
@@ -834,8 +911,7 @@ function extractMeetingLinkFromText(text) {
   return null;
 }
 
-function createTimeString(event) {
-  const startTime = new Date(event.start.dateTime || event.start.date);
+function formatRelativeTime(startTime) {
   const timeDiff = startTime - new Date();
   const minutesDiff = Math.floor(timeDiff / 60000);
   const hoursDiff = Math.floor(minutesDiff / 60);
@@ -850,7 +926,62 @@ function createTimeString(event) {
   return timeString;
 }
 
-async function getNextEvent(auth) {
+function getTimezoneAbbrev(timezone) {
+  // Map common timezones to short abbreviations
+  const abbrevMap = {
+    'America/New_York': 'ET',
+    'America/Los_Angeles': 'PT',
+    'America/Denver': 'MT',
+    'America/Chicago': 'CT',
+    'Asia/Calcutta': 'IST',
+    'Asia/Kolkata': 'IST',
+    'Asia/Singapore': 'SGT',
+    'Europe/London': 'GMT',
+    'Europe/Paris': 'CET',
+    'Asia/Tokyo': 'JST',
+    'Australia/Sydney': 'AEDT'
+  };
+  
+  return abbrevMap[timezone] || timezone.split('/').pop().substring(0, 3).toUpperCase();
+}
+
+function createTimeString(event) {
+  const startTime = new Date(event.start.dateTime || event.start.date);
+  return formatRelativeTime(startTime);
+}
+
+function getCurrentTimeInTimezone() {
+  if (!selectedTimezone || selectedTimezone === systemTimezone) {
+    return null;
+  }
+  
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', {
+    timeZone: selectedTimezone,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).toLowerCase().replace(' ', '');
+  
+  const tzAbbrev = getTimezoneAbbrev(selectedTimezone);
+  return `${timeStr} ${tzAbbrev}`;
+}
+
+function computeEventHash(events) {
+  // Create a simple hash of event IDs and times to detect changes
+  if (!events || events.length === 0) return 'empty';
+  return events.map(e => `${e.id}:${e.start?.dateTime || e.start?.date}:${e.updated}`).join('|');
+}
+
+async function fetchEvents(forceRefresh = false) {
+  const now = Date.now();
+  
+  // Rate limit API calls
+  if (!forceRefresh && (now - lastFetchTime) < MIN_FETCH_INTERVAL && cachedEvents.length > 0) {
+    log.info('Using cached events (rate limited)');
+    return cachedEvents;
+  }
+  
   const calendar = calendarClient.calendar;
   try {
     const response = await calendar.events.list({
@@ -860,26 +991,43 @@ async function getNextEvent(auth) {
       singleEvents: true,
       orderBy: 'startTime',
     });
-    const events = response.data.items;
-
-    if (events.length === 0) {
-      return { event: null, nextEvent: null, events: [] };
+    
+    lastFetchTime = now;
+    const events = response.data.items || [];
+    
+    // Check if events actually changed
+    const newHash = computeEventHash(events);
+    if (newHash === lastEventHash) {
+      log.info('Events unchanged, skipping update');
+      return cachedEvents;
     }
-
-    const now = new Date();
-    const currentEvent = events[0];
-    const nextEvent = events.length > 1 ? events[1] : null;
-
-    return {
-      event: currentEvent,
-      nextEvent: nextEvent && new Date(currentEvent.end.dateTime) > now ? nextEvent : null,
-      events: events
-    };
-
+    
+    lastEventHash = newHash;
+    cachedEvents = events;
+    return events;
+    
   } catch (error) {
     console.error('The API returned an error: ' + error);
+    return cachedEvents; // Return cached on error
+  }
+}
+
+async function getNextEvent(auth) {
+  const events = await fetchEvents();
+
+  if (events.length === 0) {
     return { event: null, nextEvent: null, events: [] };
   }
+
+  const now = new Date();
+  const currentEvent = events[0];
+  const nextEvent = events.length > 1 ? events[1] : null;
+
+  return {
+    event: currentEvent,
+    nextEvent: nextEvent && new Date(currentEvent.end.dateTime) > now ? nextEvent : null,
+    events: events
+  };
 }
 
 async function handleReminderWindow(eventsObj) {
@@ -922,35 +1070,65 @@ function elipsis(text, maxLength) {
   return text.length > maxLength ? text.substring(0, maxLength - 3).trim() + '..' : text;
 }
 
-async function updateTrayTitle() {
-  console.log("Updating tray title");
+async function updateTrayTitle(forceRefresh = false) {
   try {
     const events = await getNextEvent(calendarClient);
     const { event, nextEvent } = events;
-    let eventName = event ? `${elipsis(event.summary, 20)} ${createTimeString(event)}` : 'No upcoming events';
+    
+    // Adjust event name length based on whether timezone prefix is shown
+    const tzTime = getCurrentTimeInTimezone();
+    const maxNameLength = tzTime ? 15 : 20;
+    let eventName = event ? `${elipsis(event.summary, maxNameLength)} ${createTimeString(event)}` : 'No upcoming events';
+    
+    // Prepend current time in selected timezone if different from system
+    if (tzTime) {
+      eventName = `${tzTime} | ${eventName}`;
+    }
 
     if (event && nextEvent) {
       const now = new Date();
       const nextEventStartTime = new Date(nextEvent.start.dateTime || nextEvent.start.date);
       if (nextEventStartTime - now <= 30 * 60 * 1000) {
-        log.info("Next event is within 30 mins");
-        eventName = `${elipsis(nextEvent.summary, 20)} ${createTimeString(nextEvent)}`;
+        eventName = `${elipsis(nextEvent.summary, maxNameLength)} ${createTimeString(nextEvent)}`;
+        // Re-add timezone prefix if applicable
+        if (tzTime) {
+          eventName = `${tzTime} | ${eventName}`;
+        }
       }
     }
 
-    console.log(eventName);
-
-    tray.setTitle(eventName);
+    // Only update tray if title actually changed
+    if (eventName !== lastTrayTitle) {
+      log.info(eventName);
+      tray.setTitle(eventName);
+      lastTrayTitle = eventName;
+    }
+    
     handleReminderWindow(events);
 
+    // Only send to renderer if we have events and they changed
     if (typeof mainWindow?.webContents?.send === 'function') {
       mainWindow.webContents.send('update-events', events.events);
     }
 
   } catch (error) {
     log.error('Error updating tray:', error);
-    tray.setTitle('Error updating event');
+    if (lastTrayTitle !== 'Error') {
+      tray.setTitle('Error');
+      lastTrayTitle = 'Error';
+    }
   }
+}
+
+// Debounced update for webhook notifications
+function scheduleUpdate() {
+  if (pendingUpdate) {
+    clearTimeout(pendingUpdate);
+  }
+  pendingUpdate = setTimeout(() => {
+    pendingUpdate = null;
+    updateTrayTitle(true);
+  }, 500); // Wait 500ms to batch rapid webhook updates
 }
 
 async function startApp() {
@@ -973,12 +1151,12 @@ async function startApp() {
     }
 
     await createWindow();
-    await updateTrayTitle();
+    await updateTrayTitle(true); // Force initial fetch
 
-    // Always start polling as a baseline - updates every 30 seconds
+    // Poll every 60 seconds as fallback (webhooks handle real-time updates)
     if (!updateTrayInterval) {
-      updateTrayInterval = setInterval(updateTrayTitle, 30000);
-      log.info('Started polling interval (30s)');
+      updateTrayInterval = setInterval(() => updateTrayTitle(), 60000);
+      log.info('Started polling interval (60s)');
     }
 
     // Setup webhook (will provide faster updates when it works)
@@ -1061,19 +1239,25 @@ app.on('ready', async () => {
     tray = new Tray(icon);
     log.info('Vivcal is ready!');
 
-    // Register global shortcut for quick add (Command+N / Ctrl+N)
+    // Register global shortcut for quick add
     const registeredQuickAdd = globalShortcut.register('Alt+N', () => {
+      log.info('Alt+N shortcut triggered');
       createQuickAddWindow();
     });
-    if (!registeredQuickAdd) {
+    if (registeredQuickAdd) {
+      log.info('Global shortcut Alt+N registered successfully');
+    } else {
       log.error('Global shortcut registration failed for Alt+N');
     }
 
     // Register global shortcut for main panel toggle (Option+C / Alt+C)
     const registeredMainPanel = globalShortcut.register('Alt+C', () => {
+      log.info('Alt+C shortcut triggered');
       toggleMainWindow();
     });
-    if (!registeredMainPanel) {
+    if (registeredMainPanel) {
+      log.info('Global shortcut Alt+C registered successfully');
+    } else {
       log.error('Global shortcut registration failed for Alt+C');
     }
 
@@ -1100,10 +1284,12 @@ app.on('ready', async () => {
     });
 
     ipcMain.on('quick-add-event', (event, text) => {
+      log.info('Received quick-add-event IPC with text:', text);
       handleQuickAddInput(text);
     });
 
     ipcMain.on('open-quick-add', () => {
+      log.info('Received open-quick-add IPC');
       createQuickAddWindow();
     });
 
@@ -1142,6 +1328,12 @@ app.on('ready', async () => {
       if (quickAddWindow) {
         quickAddWindow.setSize(width, height);
       }
+    });
+
+    ipcMain.on('set-timezone', (event, timezone) => {
+      selectedTimezone = timezone;
+      log.info('Timezone changed to:', timezone);
+      updateTrayTitle();
     });
 
   } catch (err) {
@@ -1205,12 +1397,12 @@ function buildGoogleCalendarUrl(inputText) {
   try {
     const results = chrono.parse(inputText);
     let summary = inputText;
-    let datesParam = null;
+    let startDate = null;
+    let endDate = null;
 
     if (results.length) {
       const res = results[0];
-      const startDate = res.start.date();
-      let endDate;
+      startDate = res.start.date();
 
       if (res.end) {
         endDate = res.end.date();
@@ -1219,19 +1411,21 @@ function buildGoogleCalendarUrl(inputText) {
         endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
       }
 
-      datesParam = `${formatRFCDate(startDate)}/${formatRFCDate(endDate)}`;
-
       // Remove the parsed text portion to make summary cleaner
       summary = inputText.replace(res.text, '').trim();
       if (!summary) summary = res.text; // fallback
     }
 
+    // Build URL manually to avoid double-encoding issues
     const base = 'https://calendar.google.com/calendar/u/0/r/eventedit';
-    const params = new URLSearchParams();
-    params.append('text', summary);
-    if (datesParam) params.append('dates', datesParam);
-
-    return `${base}?${params.toString()}`;
+    const encodedText = encodeURIComponent(summary);
+    
+    if (startDate && endDate) {
+      const datesParam = `${formatRFCDate(startDate)}/${formatRFCDate(endDate)}`;
+      return `${base}?text=${encodedText}&dates=${datesParam}`;
+    }
+    
+    return `${base}?text=${encodedText}`;
   } catch (e) {
     log.error('Error building calendar url:', e);
     return 'https://calendar.google.com/calendar/u/0/r/eventedit';
@@ -1239,13 +1433,33 @@ function buildGoogleCalendarUrl(inputText) {
 }
 
 async function handleQuickAddInput(text) {
+  log.info('handleQuickAddInput called with:', text);
   if (!text) return;
+  
   try {
-    const eventObj = await callPortkey(text);
-    const url = buildCalendarUrlFromPortkey(eventObj);
+    let url;
+    
+    // Try Portkey AI first if configured
+    if (PORTKEY_API_KEY) {
+      try {
+        log.info('Trying Portkey AI...');
+        const eventObj = await callPortkey(text);
+        log.info('Portkey response:', JSON.stringify(eventObj));
+        url = buildCalendarUrlFromPortkey(eventObj);
+      } catch (portkeyErr) {
+        log.warn('Portkey failed, falling back to chrono-node:', portkeyErr.message);
+        url = buildGoogleCalendarUrl(text);
+      }
+    } else {
+      // Use chrono-node for local date parsing
+      url = buildGoogleCalendarUrl(text);
+    }
+    
+    log.info('Opening calendar URL:', url);
     shell.openExternal(url);
   } catch (err) {
-    // fallback: open raw google calendar new-event page
+    log.error('Quick add error:', err);
+    // Last resort: open Google Calendar new event page
     shell.openExternal('https://calendar.google.com/calendar/u/0/r/eventedit');
   } finally {
     if (quickAddWindow) {
@@ -1255,19 +1469,22 @@ async function handleQuickAddInput(text) {
 }
 
 function createQuickAddWindow() {
+  log.info('createQuickAddWindow called');
   if (quickAddWindow) {
+    log.info('Quick add window exists, showing it');
     quickAddWindow.show();
     quickAddWindow.focus();
     return;
   }
+  log.info('Creating new quick add window');
 
   const currDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const { workArea } = currDisplay;
 
   quickAddWindow = new BrowserWindow({
-    width: 500,
-    height: 200,
-    x: Math.round(workArea.x + (workArea.width - 500) / 2),
+    width: 420,
+    height: 180,
+    x: Math.round(workArea.x + (workArea.width - 420) / 2),
     y: workArea.y + 80,
     alwaysOnTop: true,
     frame: false,
@@ -1286,8 +1503,35 @@ function createQuickAddWindow() {
     <html>
       <head>
         <meta charset="UTF-8">
-        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
         <style>
+          :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-tertiary: #171717;
+            --bg-hover: #1c1c1c;
+            --text-primary: #e5e5e5;
+            --text-secondary: #737373;
+            --text-muted: #525252;
+            --accent: #0096bb;
+            --border: #1f1f1f;
+            --shadow: rgba(0, 0, 0, 0.5);
+          }
+
+          @media (prefers-color-scheme: light) {
+            :root {
+              --bg-primary: #ffffff;
+              --bg-secondary: #f5f5f5;
+              --bg-tertiary: #ebebeb;
+              --bg-hover: #e0e0e0;
+              --text-primary: #171717;
+              --text-secondary: #525252;
+              --text-muted: #737373;
+              --accent: #0096bb;
+              --border: #e5e5e5;
+              --shadow: rgba(0, 0, 0, 0.15);
+            }
+          }
+
           * {
             box-sizing: border-box;
             margin: 0;
@@ -1295,17 +1539,18 @@ function createQuickAddWindow() {
           }
           
           body {
-            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
             background: transparent;
             overflow: hidden;
+            -webkit-font-smoothing: antialiased;
           }
           
           .container {
-            background: linear-gradient(145deg, #1a1a1a 0%, #0d0d0d 100%);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-            padding: 20px;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 60px var(--shadow);
+            padding: 16px;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -1315,90 +1560,72 @@ function createQuickAddWindow() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             -webkit-app-region: drag;
           }
           
           .title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #f0f0f0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          
-          .title-icon {
-            width: 24px;
-            height: 24px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
           }
           
           .shortcut-hint {
             font-size: 10px;
-            color: #5a5a5a;
-            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
           }
           
           .input-wrapper {
             position: relative;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             -webkit-app-region: no-drag;
           }
           
           textarea {
             width: 100%;
-            padding: 14px 16px;
-            border-radius: 12px;
-            border: 2px solid rgba(99, 102, 241, 0.3);
-            font-size: 15px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 14px;
             outline: none;
             resize: none;
             overflow: hidden;
-            background: rgba(255, 255, 255, 0.03);
-            color: #f0f0f0;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             font-family: inherit;
-            min-height: 50px;
-            transition: all 0.2s ease;
+            min-height: 44px;
+            transition: all 0.1s ease;
           }
           
           textarea::placeholder {
-            color: #5a5a5a;
+            color: var(--text-muted);
           }
           
           textarea:focus {
-            border-color: rgba(99, 102, 241, 0.6);
-            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--accent);
           }
           
           .examples {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 16px;
+            gap: 4px;
+            margin-bottom: 12px;
             -webkit-app-region: no-drag;
           }
           
           .example-chip {
-            padding: 5px 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 20px;
-            font-size: 11px;
-            color: #8a8a8a;
+            padding: 4px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--text-muted);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.1s ease;
           }
           
           .example-chip:hover {
-            background: rgba(99, 102, 241, 0.15);
-            border-color: rgba(99, 102, 241, 0.3);
-            color: #a5b4fc;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
           }
           
           .actions {
@@ -1410,55 +1637,53 @@ function createQuickAddWindow() {
           }
           
           .help-text {
-            font-size: 11px;
-            color: #5a5a5a;
+            font-size: 10px;
+            color: var(--text-muted);
           }
           
           .help-text kbd {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-tertiary);
+            padding: 1px 4px;
+            border-radius: 3px;
             font-size: 10px;
           }
           
           .btn-group {
             display: flex;
-            gap: 8px;
-          }
-          
-          .btn {
-            padding: 10px 20px;
-            border-radius: 10px;
-            border: none;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: inherit;
-            display: flex;
-            align-items: center;
             gap: 6px;
           }
           
+          .btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+          }
+          
           .btn-cancel {
-            background: rgba(255, 255, 255, 0.05);
-            color: #8a8a8a;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
           }
           
           .btn-cancel:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: #f0f0f0;
+            background: var(--bg-hover);
+            color: var(--text-primary);
           }
           
           .btn-create {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            background: var(--accent);
             color: white;
           }
           
           .btn-create:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+            background: #00a8d0;
           }
           
           .btn-create:disabled {
@@ -1467,12 +1692,12 @@ function createQuickAddWindow() {
           }
           
           .spinner {
-            width: 14px;
-            height: 14px;
+            width: 12px;
+            height: 12px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-top-color: white;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            animation: spin 0.6s linear infinite;
           }
           
           @keyframes spin {
@@ -1484,43 +1709,34 @@ function createQuickAddWindow() {
             top: 100%;
             left: 0;
             right: 0;
-            background: #1a1a1a;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 8px 24px var(--shadow);
             z-index: 1000;
-            max-height: 150px;
+            max-height: 120px;
             overflow-y: auto;
             display: none;
-            margin-top: 6px;
+            margin-top: 4px;
           }
           
           .suggest.show {
             display: block;
-            animation: slideDown 0.15s ease;
+            animation: slideDown 0.1s ease;
           }
           
           @keyframes slideDown {
-            from {
-              opacity: 0;
-              transform: translateY(-5px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
           }
           
           .suggest-item {
-            padding: 10px 14px;
+            padding: 8px 12px;
             cursor: pointer;
-            font-size: 12px;
-            color: #a0a0a0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.15s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            transition: all 0.1s ease;
           }
           
           .suggest-item:last-child {
@@ -1529,45 +1745,37 @@ function createQuickAddWindow() {
           
           .suggest-item:hover,
           .suggest-item.selected {
-            background: rgba(99, 102, 241, 0.15);
-            color: #f0f0f0;
-          }
-          
-          .suggest-item::before {
-            content: '👤';
-            font-size: 12px;
+            background: var(--bg-hover);
+            color: var(--text-primary);
           }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <div class="title">
-              <span class="title-icon">✨</span>
-              Quick Add Event
-            </div>
+            <span class="title">Quick Add</span>
             <span class="shortcut-hint">⌥N</span>
           </div>
           
           <div class="input-wrapper">
-            <textarea id="quickInput" rows="1" autofocus placeholder="Meeting with John tomorrow at 3pm for 1 hour..."></textarea>
+            <textarea id="quickInput" rows="1" autofocus placeholder="Meeting with John tomorrow at 3pm..."></textarea>
             <div class="suggest" id="suggest"></div>
           </div>
           
           <div class="examples">
-            <span class="example-chip" data-text="Standup tomorrow 9am">📅 Standup tomorrow 9am</span>
-            <span class="example-chip" data-text="Lunch with team Friday noon">🍽️ Lunch Friday noon</span>
-            <span class="example-chip" data-text="Call with client next Monday 2pm">📞 Call Monday 2pm</span>
+            <span class="example-chip" data-text="Standup tomorrow 9am">Standup tomorrow 9am</span>
+            <span class="example-chip" data-text="Lunch Friday noon">Lunch Friday noon</span>
+            <span class="example-chip" data-text="Call Monday 2pm">Call Monday 2pm</span>
           </div>
           
           <div class="actions">
             <div class="help-text">
-              Type <kbd>@</kbd> to add attendees
+              <kbd>@</kbd> to add attendees
             </div>
             <div class="btn-group">
               <button class="btn btn-cancel" onclick="window.close()">Cancel</button>
               <button class="btn btn-create" id="createBtn">
-                <span id="btnText">Create Event</span>
+                <span id="btnText">Create</span>
                 <div class="spinner" id="spinner" style="display: none;"></div>
               </button>
             </div>
@@ -1595,7 +1803,7 @@ function createQuickAddWindow() {
             const windowHeight = Math.max(200, baseHeight + dropdownHeight);
             
             if (window.electronAPI) {
-              window.electronAPI.resizeWindow(500, windowHeight);
+              window.electronAPI.resizeWindow(420, windowHeight);
             }
           }
           

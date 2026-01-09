@@ -17,6 +17,7 @@
     "electron-notarize": "^1.2.2"
   },
   "scripts": {
+    "setup": "node scripts/setup.js",
     "start": "electron .",
     "start-local": "npx electron .",
     "pack": "electron-builder --dir",

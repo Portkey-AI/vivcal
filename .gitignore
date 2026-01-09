@@ -6,3 +6,5 @@ token.json
 
 out/
 dist/
+.env
+.DS_Store

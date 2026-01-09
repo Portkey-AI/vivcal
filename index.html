@@ -4,28 +4,40 @@
   <meta charset="UTF-8">
   <title>VivCal</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* Dark theme (default) */
     :root {
-      --bg-primary: #0d0d0d;
-      --bg-secondary: #161616;
-      --bg-tertiary: #1f1f1f;
-      --bg-hover: #2a2a2a;
-      --text-primary: #f0f0f0;
-      --text-secondary: #8a8a8a;
-      --text-muted: #5a5a5a;
-      --accent: #6366f1;
-      --accent-hover: #818cf8;
-      --accent-muted: rgba(99, 102, 241, 0.15);
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --border: #2a2a2a;
-      --border-light: #333;
-      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-      --radius-sm: 6px;
-      --radius-md: 10px;
-      --radius-lg: 14px;
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #111111;
+      --bg-tertiary: #171717;
+      --bg-hover: #1c1c1c;
+      --text-primary: #e5e5e5;
+      --text-secondary: #737373;
+      --text-muted: #525252;
+      --accent: #0096bb;
+      --accent-soft: rgba(0, 150, 187, 0.12);
+      --success: #10b981;
+      --success-soft: rgba(16, 185, 129, 0.12);
+      --border: #1f1f1f;
+      --radius: 8px;
+    }
+
+    /* Light theme */
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f5f5;
+        --bg-tertiary: #ebebeb;
+        --bg-hover: #e0e0e0;
+        --text-primary: #171717;
+        --text-secondary: #525252;
+        --text-muted: #737373;
+        --accent: #0096bb;
+        --accent-soft: rgba(0, 150, 187, 0.08);
+        --success: #059669;
+        --success-soft: rgba(5, 150, 105, 0.08);
+        --border: #e5e5e5;
+      }
     }
 
     * {
@@ -35,232 +47,74 @@
     }
 
     body {
-      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       font-size: 13px;
-      line-height: 1.5;
+      line-height: 1.4;
       overflow: hidden;
       user-select: none;
       -webkit-app-region: drag;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Header */
+    /* Header - Ultra minimal */
     header {
-      background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-      padding: 14px 16px 10px;
+      padding: 12px 14px 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border);
       -webkit-app-region: drag;
     }
 
     .header-left {
       display: flex;
       align-items: center;
-      gap: 12px;
-    }
-
-    .logo {
-      font-size: 15px;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.5px;
+      gap: 8px;
     }
 
     .current-date {
       font-size: 12px;
       color: var(--text-secondary);
       font-weight: 500;
+      letter-spacing: -0.01em;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 2px;
       -webkit-app-region: no-drag;
     }
 
     .icon-btn {
-      width: 30px;
-      height: 30px;
-      border-radius: var(--radius-sm);
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
       border: none;
       background: transparent;
-      color: var(--text-secondary);
+      color: var(--text-muted);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
-      font-size: 13px;
+      transition: all 0.1s ease;
+      font-size: 12px;
+      -webkit-app-region: no-drag;
     }
 
     .icon-btn:hover {
       background: var(--bg-hover);
-      color: var(--text-primary);
+      color: var(--text-secondary);
+    }
+
+    .icon-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent);
     }
 
     .icon-btn.danger:hover {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
-    }
-
-    /* Tab Navigation */
-    .tab-nav {
-      display: flex;
-      padding: 0 16px;
-      gap: 4px;
-      background: var(--bg-primary);
-      border-bottom: 1px solid var(--border);
-      -webkit-app-region: no-drag;
-    }
-
-    .tab-btn {
-      padding: 10px 16px;
-      background: none;
-      border: none;
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      position: relative;
-      transition: all 0.2s ease;
-      font-family: inherit;
-      -webkit-app-region: no-drag;
-    }
-
-    .tab-btn:hover {
-      color: var(--text-primary);
-    }
-
-    .tab-btn.active {
-      color: var(--accent);
-    }
-
-    .tab-btn.active::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--accent);
-      border-radius: 2px 2px 0 0;
-    }
-
-    /* Mini Calendar */
-    .mini-calendar {
-      padding: 12px 16px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border);
-      -webkit-app-region: no-drag;
-    }
-
-    .mini-cal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .mini-cal-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .mini-cal-nav {
-      display: flex;
-      gap: 4px;
-    }
-
-    .mini-cal-nav button {
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      border: none;
-      background: transparent;
-      color: var(--text-secondary);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      transition: all 0.15s ease;
-    }
-
-    .mini-cal-nav button:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
-    }
-
-    .mini-cal-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 2px;
-    }
-
-    .mini-cal-day-header {
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-align: center;
-      padding: 4px 0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .mini-cal-day {
-      aspect-ratio: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      color: var(--text-secondary);
-      position: relative;
-    }
-
-    .mini-cal-day:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
-    }
-
-    .mini-cal-day.other-month {
-      color: var(--text-muted);
-      opacity: 0.5;
-    }
-
-    .mini-cal-day.today {
-      background: var(--accent);
-      color: white;
-      font-weight: 600;
-    }
-
-    .mini-cal-day.selected {
-      background: var(--accent-muted);
-      color: var(--accent);
-      font-weight: 600;
-    }
-
-    .mini-cal-day.has-events::after {
-      content: '';
-      position: absolute;
-      bottom: 3px;
-      width: 4px;
-      height: 4px;
-      background: var(--accent);
-      border-radius: 50%;
-    }
-
-    .mini-cal-day.today.has-events::after {
-      background: white;
+      color: #ef4444;
     }
 
     /* Events Container */
@@ -268,13 +122,13 @@
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 12px 16px;
+      padding: 8px 10px;
       -webkit-app-region: no-drag;
       -webkit-overflow-scrolling: touch;
     }
 
     #events-container::-webkit-scrollbar {
-      width: 6px;
+      width: 4px;
     }
 
     #events-container::-webkit-scrollbar-track {
@@ -283,110 +137,96 @@
 
     #events-container::-webkit-scrollbar-thumb {
       background: var(--border);
-      border-radius: 3px;
+      border-radius: 2px;
     }
 
-    #events-container::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-
-    /* Date Heading */
+    /* Date Section */
     .date-section {
-      margin-bottom: 16px;
+      margin-bottom: 4px;
     }
 
     .date-heading {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .date-day {
-      font-size: 28px;
-      font-weight: 700;
-      color: var(--text-primary);
-      line-height: 1;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .date-info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .date-weekday {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .date-month-year {
+      gap: 6px;
+      padding: 6px 4px;
       font-size: 11px;
-      color: var(--text-secondary);
+      color: var(--text-muted);
+      font-weight: 500;
     }
 
     .date-today-badge {
-      margin-left: auto;
-      padding: 3px 8px;
-      background: var(--accent-muted);
       color: var(--accent);
-      font-size: 10px;
-      font-weight: 600;
-      border-radius: 20px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
-    /* Event Row */
+    /* Event Row - Clean and focused */
     .event-row {
-      background: var(--bg-secondary);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-      margin-bottom: 8px;
+      padding: 8px 10px;
+      margin-bottom: 1px;
       display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      transition: all 0.2s ease;
-      border: 1px solid transparent;
+      align-items: center;
+      gap: 10px;
+      border-radius: var(--radius);
       cursor: pointer;
+      transition: background 0.1s ease;
     }
 
     .event-row:hover {
-      background: var(--bg-tertiary);
-      border-color: var(--border-light);
-      transform: translateX(2px);
+      background: var(--bg-secondary);
     }
 
     .event-row.current {
-      border-left: 3px solid var(--success);
-      background: rgba(34, 197, 94, 0.08);
+      background: var(--success-soft);
+    }
+
+    .event-row.current:hover {
+      background: rgba(16, 185, 129, 0.18);
     }
 
     .event-row.upcoming {
-      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
     }
 
-    .event-time-block {
+    .event-row.upcoming:hover {
+      background: rgba(0, 150, 187, 0.18);
+    }
+
+    /* Gap indicator between events */
+    .event-gap {
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      min-width: 60px;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px 4px 58px;
+      margin: 2px 0;
+    }
+
+    .event-gap-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .event-gap-label {
+      font-size: 10px;
+      color: var(--success);
+      font-weight: 500;
+      white-space: nowrap;
     }
 
     .event-time {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
-      color: var(--text-primary);
+      color: var(--text-muted);
+      min-width: 48px;
+      font-variant-numeric: tabular-nums;
     }
 
-    .event-duration {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 2px;
+    .event-row.current .event-time {
+      color: var(--success);
+    }
+
+    .event-row.upcoming .event-time {
+      color: var(--accent);
     }
 
     .event-content {
@@ -397,262 +237,268 @@
     .event-summary {
       font-weight: 500;
       color: var(--text-primary);
-      margin-bottom: 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      font-size: 13px;
     }
 
     .event-meta {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       font-size: 11px;
-      color: var(--text-secondary);
-    }
-
-    .event-meta i {
-      font-size: 10px;
-      opacity: 0.7;
-    }
-
-    .event-attendees {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .attendee-count {
-      background: var(--bg-hover);
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
     }
 
     .event-actions {
       display: flex;
-      gap: 6px;
+      gap: 4px;
       opacity: 0;
-      transition: opacity 0.2s ease;
+      transition: opacity 0.1s ease;
     }
 
     .event-row:hover .event-actions {
       opacity: 1;
     }
 
-    .join-button {
-      background: var(--accent);
-      color: white;
+    .join-btn {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
       border: none;
-      padding: 6px 12px;
-      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+      border-radius: 5px;
       cursor: pointer;
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10px;
+      font-weight: 500;
       display: flex;
       align-items: center;
-      gap: 5px;
-      transition: all 0.2s ease;
+      gap: 4px;
+      transition: all 0.1s ease;
       font-family: inherit;
     }
 
-    .join-button:hover {
-      background: var(--accent-hover);
-      transform: scale(1.02);
+    .join-btn:hover {
+      background: var(--accent);
+      color: white;
     }
 
-    .join-button.zoom {
-      background: #2d8cff;
+    /* Event Detail Panel - Compact */
+    .event-detail-panel {
+      display: none;
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      margin: 2px 0 6px 58px;
+      padding: 10px 12px;
+      animation: fadeIn 0.15s ease;
     }
 
-    .join-button.zoom:hover {
-      background: #1a7ae8;
+    .event-detail-panel.show {
+      display: block;
     }
 
-    .join-button.teams {
-      background: #5558af;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    .join-button.teams:hover {
-      background: #4648a0;
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
     }
 
-    .join-button.google {
-      background: #1a73e8;
+    .detail-row:last-child {
+      margin-bottom: 0;
     }
 
-    .join-button.google:hover {
-      background: #1557b0;
+    .detail-row i {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 2px;
+      width: 14px;
     }
 
-    /* Time Gap */
-    .time-gap {
+    .detail-row a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .detail-row a:hover {
+      text-decoration: underline;
+    }
+
+    .attendee-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .attendee-pill {
+      background: var(--bg-tertiary);
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    .attendee-pill.you {
+      color: var(--accent);
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .detail-btn {
+      flex: 1;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 0;
-      margin: 4px 0 4px 72px;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.1s ease;
+      font-family: inherit;
     }
 
-    .time-gap-line {
-      flex: 1;
-      height: 2px;
-      background: linear-gradient(90deg, var(--border-light) 0%, transparent 80%);
-      border-radius: 1px;
+    .detail-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
     }
 
-    .time-gap-text {
-      font-size: 11px;
-      color: var(--text-secondary);
-      font-family: 'JetBrains Mono', monospace;
-      background: var(--bg-tertiary);
-      padding: 4px 10px;
-      border-radius: 12px;
-      white-space: nowrap;
+    .detail-btn.primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .detail-btn.primary:hover {
+      background: #00a8d0;
     }
 
     /* Timeline View */
     #timeline-container {
       flex: 1;
-      display: flex;
+      display: none;
       flex-direction: column;
       overflow: hidden;
       -webkit-app-region: no-drag;
+    }
+
+    #timeline-container.active {
+      display: flex;
     }
 
     .timeline-header {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      padding: 12px 16px;
-      background: var(--bg-secondary);
+      gap: 12px;
+      padding: 8px 14px;
       border-bottom: 1px solid var(--border);
     }
 
     .timeline-nav-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg-tertiary);
-      color: var(--text-secondary);
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      transition: all 0.15s ease;
+      font-size: 10px;
+      transition: all 0.1s ease;
     }
 
     .timeline-nav-btn:hover {
       background: var(--bg-hover);
-      color: var(--text-primary);
-      border-color: var(--border-light);
+      color: var(--text-secondary);
     }
 
     .timeline-date {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      min-width: 140px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      min-width: 100px;
       text-align: center;
     }
 
     .timeline-scroll {
       flex: 1;
       overflow-y: auto;
-      overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
     }
 
     .timeline-scroll::-webkit-scrollbar {
-      width: 6px;
+      width: 4px;
     }
 
     .timeline-scroll::-webkit-scrollbar-thumb {
       background: var(--border);
-      border-radius: 3px;
+      border-radius: 2px;
     }
 
     .timeline-grid {
       position: relative;
-      margin: 0 16px 16px;
-      min-height: 100%;
+      margin: 0 14px 14px;
     }
 
     .timeline-hour {
       display: flex;
-      align-items: flex-start;
-      height: 60px;
+      height: 48px;
       border-bottom: 1px solid var(--border);
-      position: relative;
-    }
-
-    .timeline-hour:last-child {
-      border-bottom: none;
     }
 
     .timeline-hour-label {
-      width: 50px;
+      width: 36px;
       font-size: 10px;
-      font-family: 'JetBrains Mono', monospace;
       color: var(--text-muted);
       padding-top: 2px;
-      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
     }
 
     .timeline-hour-content {
       flex: 1;
       position: relative;
-      height: 100%;
-    }
-
-    .timeline-hour-line {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: var(--border);
-    }
-
-    .timeline-half-line {
-      position: absolute;
-      top: 30px;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: var(--border);
-      opacity: 0.4;
     }
 
     .timeline-event {
       position: absolute;
-      left: 4px;
-      right: 4px;
-      background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
-      border-radius: 6px;
-      padding: 6px 10px;
+      left: 38px;
+      right: 2px;
+      background: var(--accent);
+      border-radius: 4px;
+      padding: 4px 8px;
       overflow: hidden;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.1s ease;
       z-index: 1;
-      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
     }
 
     .timeline-event:hover {
       transform: translateX(2px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-    }
-
-    .timeline-event.short {
-      padding: 3px 8px;
     }
 
     .timeline-event-title {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 500;
       color: white;
       white-space: nowrap;
       overflow: hidden;
@@ -661,88 +507,42 @@
 
     .timeline-event-time {
       font-size: 9px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-top: 2px;
-    }
-
-    .timeline-event.short .timeline-event-time {
-      display: none;
-    }
-
-    .timeline-event-join {
-      position: absolute;
-      right: 6px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 9px;
-      cursor: pointer;
-      opacity: 0;
-      transition: all 0.2s ease;
-    }
-
-    .timeline-event:hover .timeline-event-join {
-      opacity: 1;
-    }
-
-    .timeline-event-join:hover {
-      background: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.7);
     }
 
     .timeline-now-line {
       position: absolute;
-      left: 50px;
+      left: 36px;
       right: 0;
       height: 2px;
-      background: var(--danger);
+      background: #ef4444;
       z-index: 10;
-      pointer-events: none;
     }
 
     .timeline-now-line::before {
       content: '';
       position: absolute;
-      left: -5px;
-      top: -4px;
-      width: 10px;
-      height: 10px;
-      background: var(--danger);
+      left: -4px;
+      top: -3px;
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
       border-radius: 50%;
-    }
-
-    .timeline-now-label {
-      position: absolute;
-      left: -48px;
-      top: -6px;
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--danger);
-      font-family: 'JetBrains Mono', monospace;
     }
 
     .timeline-free-slot {
       position: absolute;
-      left: 4px;
-      right: 4px;
-      background: rgba(34, 197, 94, 0.08);
-      border: 1px dashed rgba(34, 197, 94, 0.3);
-      border-radius: 6px;
+      left: 38px;
+      right: 2px;
+      background: var(--success-soft);
+      border: 1px dashed rgba(16, 185, 129, 0.3);
+      border-radius: 4px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--success);
       font-size: 10px;
       opacity: 0.7;
-      transition: all 0.2s ease;
-    }
-
-    .timeline-free-slot:hover {
-      opacity: 1;
-      background: rgba(34, 197, 94, 0.12);
     }
 
     /* Empty State */
@@ -756,33 +556,31 @@
     }
 
     .empty-state i {
-      font-size: 40px;
+      font-size: 32px;
       color: var(--text-muted);
-      margin-bottom: 16px;
-      opacity: 0.5;
+      margin-bottom: 12px;
+      opacity: 0.4;
     }
 
     .empty-state h3 {
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 500;
       color: var(--text-secondary);
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .empty-state p {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
     }
 
-    /* Settings Panel */
+    /* Settings Panel - Compact */
     .settings-panel {
       display: none;
-      padding: 16px;
+      padding: 12px 14px;
       overflow-y: auto;
-      overflow-x: hidden;
       flex: 1;
       -webkit-app-region: no-drag;
-      -webkit-overflow-scrolling: touch;
     }
 
     .settings-panel.active {
@@ -790,48 +588,41 @@
     }
 
     .settings-section {
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
 
     .settings-section-title {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
 
     .settings-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
+      padding: 8px 10px;
       background: var(--bg-secondary);
-      border-radius: var(--radius-sm);
-      margin-bottom: 6px;
+      border-radius: 6px;
+      margin-bottom: 4px;
     }
 
     .settings-item-label {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-primary);
     }
 
-    .settings-item-desc {
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 2px;
-    }
-
-    /* Toggle Switch */
     .toggle {
       position: relative;
-      width: 40px;
-      height: 22px;
-      background: var(--bg-hover);
-      border-radius: 11px;
+      width: 32px;
+      height: 18px;
+      background: var(--bg-tertiary);
+      border-radius: 9px;
       cursor: pointer;
-      transition: background 0.2s ease;
+      transition: background 0.15s ease;
     }
 
     .toggle.active {
@@ -841,130 +632,96 @@
     .toggle::after {
       content: '';
       position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 16px;
-      height: 16px;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
       background: white;
       border-radius: 50%;
-      transition: transform 0.2s ease;
+      transition: transform 0.15s ease;
     }
 
     .toggle.active::after {
-      transform: translateX(18px);
+      transform: translateX(14px);
     }
 
-    /* Select Dropdown */
     .settings-select {
-      background: var(--bg-hover);
+      background: var(--bg-tertiary);
       color: var(--text-primary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 6px 10px;
-      font-size: 12px;
+      border: none;
+      border-radius: 5px;
+      padding: 4px 8px;
+      font-size: 11px;
       font-family: inherit;
       cursor: pointer;
       outline: none;
     }
 
-    .settings-select:focus {
-      border-color: var(--accent);
-    }
-
-    /* Keyboard Shortcuts */
     .shortcuts-grid {
       display: grid;
-      gap: 8px;
+      gap: 4px;
     }
 
     .shortcut-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 12px;
+      padding: 6px 10px;
       background: var(--bg-secondary);
-      border-radius: var(--radius-sm);
+      border-radius: 6px;
     }
 
     .shortcut-label {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-secondary);
     }
 
     .shortcut-keys {
       display: flex;
-      gap: 4px;
+      gap: 3px;
     }
 
     .key {
-      background: var(--bg-hover);
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--text-primary);
-      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      color: var(--text-secondary);
     }
 
-    /* Footer */
+    /* Footer - Minimal */
     footer {
-      padding: 10px 16px;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border);
+      padding: 8px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-top: 1px solid var(--border);
       -webkit-app-region: no-drag;
-    }
-
-    .footer-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
 
     .sync-status {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       font-size: 10px;
       color: var(--text-muted);
     }
 
     .sync-dot {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       background: var(--success);
       border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
     }
 
     .timezone-compact {
-      background: var(--bg-hover);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 6px 12px;
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      font-size: 10px;
       cursor: pointer;
       outline: none;
-      -webkit-appearance: none;
-      appearance: none;
-    }
-
-    .timezone-compact:focus {
-      border-color: var(--accent);
-    }
-
-    .timezone-compact:hover {
-      background: var(--bg-tertiary);
-      border-color: var(--border-light);
+      font-family: inherit;
     }
 
     /* Main Layout */
@@ -981,37 +738,34 @@
       overflow: hidden;
     }
 
-    /* Animations */
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
+    /* Subtle animations */
     .event-row {
-      animation: slideIn 0.3s ease forwards;
+      animation: slideIn 0.2s ease;
     }
 
-    .date-section:nth-child(1) .event-row { animation-delay: 0.05s; }
-    .date-section:nth-child(2) .event-row { animation-delay: 0.1s; }
-    .date-section:nth-child(3) .event-row { animation-delay: 0.15s; }
+    @keyframes slideIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
   <div class="app-container">
   <header>
       <div class="header-left">
-        <span class="logo">VivCal</span>
         <span class="current-date" id="current-date"></span>
     </div>
       <div class="header-actions">
         <button class="icon-btn" id="quick-add-btn" title="Quick Add (⌥N)">
           <i class="fas fa-plus"></i>
+        </button>
+        <button class="icon-btn" id="timeline-btn" title="Timeline View">
+          <i class="fas fa-bars-staggered"></i>
         </button>
         <button class="icon-btn" id="refresh-btn" title="Refresh">
           <i class="fas fa-sync-alt"></i>
@@ -1019,38 +773,18 @@
         <button class="icon-btn" id="settings-btn" title="Settings">
           <i class="fas fa-cog"></i>
         </button>
-        <button class="icon-btn danger" id="quit-btn" title="Quit VivCal">
+        <button class="icon-btn danger" id="quit-btn" title="Quit App">
           <i class="fas fa-power-off"></i>
         </button>
     </div>
   </header>
 
-    <nav class="tab-nav">
-      <button class="tab-btn active" data-tab="agenda">Agenda</button>
-      <button class="tab-btn" data-tab="timeline">Timeline</button>
-      <button class="tab-btn" data-tab="calendar">Calendar</button>
-      <button class="tab-btn" data-tab="settings">Settings</button>
-    </nav>
-
     <div class="main-content">
-      <!-- Mini Calendar (shown in calendar tab) -->
-      <div class="mini-calendar" id="mini-calendar" style="display: none;">
-        <div class="mini-cal-header">
-          <span class="mini-cal-title" id="mini-cal-title">January 2026</span>
-          <div class="mini-cal-nav">
-            <button id="prev-month"><i class="fas fa-chevron-left"></i></button>
-            <button id="today-btn" title="Today"><i class="fas fa-circle"></i></button>
-            <button id="next-month"><i class="fas fa-chevron-right"></i></button>
-          </div>
-        </div>
-        <div class="mini-cal-grid" id="mini-cal-grid"></div>
-      </div>
-
       <!-- Events Container (Agenda View) -->
-  <div id="events-container"></div>
+      <div id="events-container"></div>
 
       <!-- Timeline View -->
-      <div id="timeline-container" style="display: none;">
+      <div id="timeline-container">
         <div class="timeline-header">
           <button class="timeline-nav-btn" id="timeline-prev"><i class="fas fa-chevron-left"></i></button>
           <span class="timeline-date" id="timeline-date">Today</span>
@@ -1064,68 +798,40 @@
       <!-- Settings Panel -->
       <div class="settings-panel" id="settings-panel">
         <div class="settings-section">
-          <div class="settings-section-title">Appearance</div>
-          <div class="settings-item">
-            <div>
-              <div class="settings-item-label">Show Mini Calendar</div>
-              <div class="settings-item-desc">Display calendar grid in agenda view</div>
-            </div>
-            <div class="toggle active" id="toggle-mini-cal"></div>
-          </div>
-          <div class="settings-item">
-            <div>
-              <div class="settings-item-label">Compact Mode</div>
-              <div class="settings-item-desc">Reduce spacing for more events</div>
-            </div>
-            <div class="toggle" id="toggle-compact"></div>
-          </div>
-        </div>
-
-        <div class="settings-section">
           <div class="settings-section-title">Notifications</div>
           <div class="settings-item">
-            <div>
-              <div class="settings-item-label">Reminder Window</div>
-              <div class="settings-item-desc">Show popup before meetings</div>
-            </div>
+            <span class="settings-item-label">Reminder popup</span>
             <div class="toggle active" id="toggle-reminder"></div>
           </div>
           <div class="settings-item">
-            <div>
-              <div class="settings-item-label">Reminder Time</div>
-              <div class="settings-item-desc">Minutes before meeting</div>
-            </div>
+            <span class="settings-item-label">Reminder time</span>
             <select class="settings-select" id="reminder-time">
               <option value="1">1 min</option>
               <option value="2" selected>2 min</option>
               <option value="5">5 min</option>
-              <option value="10">10 min</option>
             </select>
           </div>
         </div>
 
         <div class="settings-section">
-          <div class="settings-section-title">Keyboard Shortcuts</div>
+          <div class="settings-section-title">Shortcuts</div>
           <div class="shortcuts-grid">
             <div class="shortcut-item">
-              <span class="shortcut-label">Quick Add Event</span>
+              <span class="shortcut-label">Quick Add</span>
               <div class="shortcut-keys">
-                <span class="key">⌥</span>
-                <span class="key">N</span>
+                <span class="key">⌥</span><span class="key">N</span>
               </div>
             </div>
             <div class="shortcut-item">
               <span class="shortcut-label">Toggle Panel</span>
               <div class="shortcut-keys">
-                <span class="key">⌥</span>
-                <span class="key">C</span>
+                <span class="key">⌥</span><span class="key">C</span>
               </div>
             </div>
             <div class="shortcut-item">
-              <span class="shortcut-label">Refresh Events</span>
+              <span class="shortcut-label">Refresh</span>
               <div class="shortcut-keys">
-                <span class="key">⌘</span>
-                <span class="key">R</span>
+                <span class="key">⌘</span><span class="key">R</span>
               </div>
             </div>
           </div>
@@ -1134,21 +840,16 @@
         <div class="settings-section">
           <div class="settings-section-title">About</div>
           <div class="settings-item">
-            <div>
-              <div class="settings-item-label">VivCal v1.0.0</div>
-              <div class="settings-item-desc">Your intelligent calendar companion</div>
-            </div>
+            <span class="settings-item-label">VivCal v1.0</span>
           </div>
         </div>
       </div>
     </div>
 
     <footer>
-      <div class="footer-left">
-        <div class="sync-status">
-          <div class="sync-dot"></div>
-          <span>Synced</span>
-        </div>
+      <div class="sync-status">
+        <div class="sync-dot"></div>
+        <span>Synced</span>
       </div>
       <select class="timezone-compact" id="timezone-select"></select>
     </footer>
@@ -1159,28 +860,29 @@
 
     let currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     let cachedEvents = [];
-    let currentTab = 'agenda';
-    let selectedDate = new Date();
-    let viewingMonth = new Date();
+    let currentView = 'agenda'; // 'agenda', 'timeline', 'settings'
     let timelineDate = new Date();
+    let expandedEventId = null;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       populateTimezoneDropdown();
       updateCurrentDate();
-      renderMiniCalendar();
       setupEventListeners();
     });
 
     function setupEventListeners() {
-      // Tab navigation
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-      });
-
       // Header buttons
       document.getElementById('quick-add-btn').addEventListener('click', () => {
         ipcRenderer.send('open-quick-add');
+      });
+
+      document.getElementById('timeline-btn').addEventListener('click', () => {
+        if (currentView === 'timeline') {
+          switchView('agenda');
+        } else {
+          switchView('timeline');
+        }
       });
 
       document.getElementById('refresh-btn').addEventListener('click', () => {
@@ -1190,29 +892,15 @@
       });
 
       document.getElementById('settings-btn').addEventListener('click', () => {
-        switchTab('settings');
+        if (currentView === 'settings') {
+          switchView('agenda');
+        } else {
+          switchView('settings');
+        }
       });
 
       document.getElementById('quit-btn').addEventListener('click', () => {
         ipcRenderer.send('quit-app');
-      });
-
-      // Mini calendar navigation
-      document.getElementById('prev-month').addEventListener('click', () => {
-        viewingMonth.setMonth(viewingMonth.getMonth() - 1);
-        renderMiniCalendar();
-      });
-
-      document.getElementById('next-month').addEventListener('click', () => {
-        viewingMonth.setMonth(viewingMonth.getMonth() + 1);
-        renderMiniCalendar();
-      });
-
-      document.getElementById('today-btn').addEventListener('click', () => {
-        viewingMonth = new Date();
-        selectedDate = new Date();
-        renderMiniCalendar();
-        renderEvents(cachedEvents);
       });
 
       // Timeline navigation
@@ -1230,6 +918,8 @@
       document.getElementById('timezone-select').addEventListener('change', (e) => {
         currentTimezone = e.target.value;
         renderEvents(cachedEvents);
+        if (currentView === 'timeline') renderTimeline();
+        ipcRenderer.send('set-timezone', currentTimezone);
       });
 
       // Settings toggles
@@ -1248,32 +938,30 @@
       });
     }
 
-    function switchTab(tab) {
-      currentTab = tab;
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-      });
-
+    function switchView(view) {
+      currentView = view;
+      
       const eventsContainer = document.getElementById('events-container');
       const timelineContainer = document.getElementById('timeline-container');
       const settingsPanel = document.getElementById('settings-panel');
-      const miniCalendar = document.getElementById('mini-calendar');
+      const timelineBtn = document.getElementById('timeline-btn');
+      const settingsBtn = document.getElementById('settings-btn');
 
       // Hide all
       eventsContainer.style.display = 'none';
-      timelineContainer.style.display = 'none';
+      timelineContainer.classList.remove('active');
       settingsPanel.classList.remove('active');
-      miniCalendar.style.display = 'none';
+      timelineBtn.classList.remove('active');
+      settingsBtn.classList.remove('active');
 
-      if (tab === 'settings') {
-        settingsPanel.classList.add('active');
-      } else if (tab === 'calendar') {
-        eventsContainer.style.display = 'block';
-        miniCalendar.style.display = 'block';
-      } else if (tab === 'timeline') {
-        timelineContainer.style.display = 'flex';
-        timelineDate = new Date(); // Reset to today
+      if (view === 'timeline') {
+        timelineContainer.classList.add('active');
+        timelineBtn.classList.add('active');
+        timelineDate = new Date();
         renderTimeline();
+      } else if (view === 'settings') {
+        settingsPanel.classList.add('active');
+        settingsBtn.classList.add('active');
       } else {
         eventsContainer.style.display = 'block';
       }
@@ -1281,7 +969,7 @@
 
     function updateCurrentDate() {
       const now = new Date();
-      const options = { weekday: 'long', month: 'short', day: 'numeric' };
+      const options = { weekday: 'short', month: 'short', day: 'numeric' };
       document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
     }
 
@@ -1309,101 +997,12 @@
         select.appendChild(option);
       });
 
-      // Add current timezone if not in list
       if (!timezones.find(tz => tz.value === currentTimezone)) {
         const option = document.createElement('option');
         option.value = currentTimezone;
         option.textContent = currentTimezone.split('/').pop().replace('_', ' ');
         option.selected = true;
         select.appendChild(option);
-      }
-    }
-
-    function renderMiniCalendar() {
-      const grid = document.getElementById('mini-cal-grid');
-      const title = document.getElementById('mini-cal-title');
-      
-      const year = viewingMonth.getFullYear();
-      const month = viewingMonth.getMonth();
-      
-      title.textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const startDay = firstDay.getDay();
-      const daysInMonth = lastDay.getDate();
-      
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-      const selectedStr = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
-      
-      // Get dates with events
-      const eventDates = new Set();
-      cachedEvents.forEach(event => {
-        const eventDate = new Date(event.start.dateTime || event.start.date);
-        eventDates.add(`${eventDate.getFullYear()}-${eventDate.getMonth()}-${eventDate.getDate()}`);
-      });
-      
-      let html = '';
-      
-      // Day headers
-      ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(day => {
-        html += `<div class="mini-cal-day-header">${day}</div>`;
-      });
-      
-      // Previous month days
-      const prevMonth = new Date(year, month, 0);
-      const prevMonthDays = prevMonth.getDate();
-      for (let i = startDay - 1; i >= 0; i--) {
-        const day = prevMonthDays - i;
-        html += `<div class="mini-cal-day other-month">${day}</div>`;
-      }
-      
-      // Current month days
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${year}-${month}-${day}`;
-        const isToday = dateStr === todayStr;
-        const isSelected = dateStr === selectedStr;
-        const hasEvents = eventDates.has(dateStr);
-        
-        let classes = 'mini-cal-day';
-        if (isToday) classes += ' today';
-        if (isSelected && !isToday) classes += ' selected';
-        if (hasEvents) classes += ' has-events';
-        
-        html += `<div class="${classes}" data-date="${year}-${month + 1}-${day}">${day}</div>`;
-      }
-      
-      // Next month days
-      const totalCells = Math.ceil((startDay + daysInMonth) / 7) * 7;
-      const nextMonthDays = totalCells - (startDay + daysInMonth);
-      for (let day = 1; day <= nextMonthDays; day++) {
-        html += `<div class="mini-cal-day other-month">${day}</div>`;
-      }
-      
-      grid.innerHTML = html;
-      
-      // Add click handlers
-      grid.querySelectorAll('.mini-cal-day:not(.other-month)').forEach(dayEl => {
-        dayEl.addEventListener('click', () => {
-          const [y, m, d] = dayEl.dataset.date.split('-').map(Number);
-          selectedDate = new Date(y, m - 1, d);
-          renderMiniCalendar();
-          filterEventsByDate();
-        });
-      });
-    }
-
-    function filterEventsByDate() {
-      const filtered = cachedEvents.filter(event => {
-        const eventDate = new Date(event.start.dateTime || event.start.date);
-        return eventDate.toDateString() === selectedDate.toDateString();
-      });
-      
-      if (filtered.length > 0) {
-        renderEvents(filtered);
-      } else {
-        renderEvents(cachedEvents);
       }
     }
 
@@ -1450,9 +1049,6 @@
         { regex: /https:\/\/teams\.live\.com\/meet\/[^\s"<>]+/, type: 'teams' },
         { regex: /https:\/\/meet\.google\.com\/[a-z\-]+/, type: 'google' },
         { regex: /https:\/\/[a-zA-Z0-9\-]+\.webex\.com\/[^\s"<>]+/, type: 'webex' },
-        { regex: /https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/huddle\/[^\s"<>]+/, type: 'slack' },
-        { regex: /https:\/\/discord\.(gg|com\/invite)\/[^\s"<>]+/, type: 'discord' },
-        { regex: /https:\/\/join\.skype\.com\/[^\s"<>]+/, type: 'skype' },
       ];
 
       for (const pattern of patterns) {
@@ -1472,7 +1068,6 @@
       if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'teams';
       if (url.includes('meet.google.com')) return 'google';
       if (url.includes('webex.com')) return 'webex';
-      if (url.includes('slack.com')) return 'slack';
       return 'other';
     }
 
@@ -1498,17 +1093,6 @@
       }).toLowerCase().replace(' ', '');
     }
 
-    function formatDuration(start, end) {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
-      const diff = (endDate - startDate) / 60000;
-      
-      if (diff < 60) return `${diff}m`;
-      const hours = Math.floor(diff / 60);
-      const mins = diff % 60;
-      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-    }
-
     function formatDateHeading(dateStr) {
       const date = new Date(dateStr);
       const today = new Date();
@@ -1518,12 +1102,12 @@
       const isToday = date.toDateString() === today.toDateString();
       const isTomorrow = date.toDateString() === tomorrow.toDateString();
       
+      if (isToday) return { text: 'Today', isToday: true };
+      if (isTomorrow) return { text: 'Tomorrow', isToday: false };
+      
       return {
-        day: date.getDate(),
-        weekday: date.toLocaleDateString('en-US', { weekday: 'long', timeZone: currentTimezone }),
-        monthYear: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: currentTimezone }),
-        isToday,
-        isTomorrow
+        text: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: currentTimezone }),
+        isToday: false
       };
     }
 
@@ -1538,21 +1122,102 @@
       const now = new Date();
       const start = new Date(event.start.dateTime || event.start.date);
       const diff = (start - now) / 60000;
-      return diff > 0 && diff <= 30;
+      return diff > 0 && diff <= 15;
     }
 
-    function getMeetingIcon(type) {
-      const icons = {
-        zoom: '<i class="fa-solid fa-video"></i>',
-        teams: '<i class="fa-brands fa-microsoft"></i>',
-        google: '<i class="fa-brands fa-google"></i>',
-        webex: '<i class="fa-solid fa-users"></i>',
-        slack: '<i class="fa-brands fa-slack"></i>',
-        discord: '<i class="fa-brands fa-discord"></i>',
-        skype: '<i class="fa-brands fa-skype"></i>',
-        other: '<i class="fa-solid fa-link"></i>'
-      };
-      return icons[type] || icons.other;
+    function extractNameFromEmail(email) {
+      if (!email) return null;
+      const localPart = email.split('@')[0];
+      if (!localPart) return null;
+      const nameParts = localPart
+        .replace(/[._-]/g, ' ')
+        .replace(/\d+/g, '')
+        .split(' ')
+        .filter(p => p.length > 0)
+        .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+      return nameParts.join(' ') || null;
+    }
+
+    function formatFullTime(startStr, endStr) {
+      const start = new Date(startStr);
+      const end = new Date(endStr);
+      const opts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: currentTimezone };
+      return `${start.toLocaleTimeString('en-US', opts)} – ${end.toLocaleTimeString('en-US', opts)}`;
+    }
+
+    function stripHtml(html) {
+      if (!html) return '';
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || '';
+    }
+
+    function toggleEventDetail(eventId) {
+      if (expandedEventId === eventId) {
+        expandedEventId = null;
+      } else {
+        expandedEventId = eventId;
+      }
+      renderEvents(cachedEvents);
+    }
+
+    function renderEventDetailPanel(event) {
+      const { link: meetingLink } = extractMeetingLink(event);
+      const startTime = event.start.dateTime || event.start.date;
+      const endTime = event.end.dateTime || event.end.date;
+      const timeRange = formatFullTime(startTime, endTime);
+      const description = stripHtml(event.description);
+      const attendees = event.attendees || [];
+
+      let html = '';
+
+      html += `<div class="detail-row"><i class="far fa-clock"></i><span>${timeRange}</span></div>`;
+
+      if (event.location) {
+        html += `<div class="detail-row"><i class="fas fa-map-marker-alt"></i><span>${event.location}</span></div>`;
+      }
+
+      if (description) {
+        const shortDesc = description.length > 100 ? description.substring(0, 100) + '...' : description;
+        html += `<div class="detail-row"><i class="fas fa-align-left"></i><span>${shortDesc}</span></div>`;
+      }
+
+      if (attendees.length > 0) {
+        const pills = attendees.slice(0, 5).map(att => {
+          const name = att.displayName || extractNameFromEmail(att.email) || att.email.split('@')[0];
+          const isYou = att.self ? ' you' : '';
+          return `<span class="attendee-pill${isYou}">${name}</span>`;
+        }).join('');
+        const extra = attendees.length > 5 ? `<span class="attendee-pill">+${attendees.length - 5}</span>` : '';
+        html += `<div class="detail-row"><i class="fas fa-users"></i><div class="attendee-pills">${pills}${extra}</div></div>`;
+      }
+
+      html += '<div class="detail-actions">';
+      if (meetingLink) {
+        html += `<button class="detail-btn primary" onclick="event.stopPropagation(); openMeetingLink('${meetingLink}', '${event.id}')">
+          <i class="fas fa-video"></i> Join
+        </button>`;
+      }
+      if (event.htmlLink) {
+        html += `<button class="detail-btn" onclick="event.stopPropagation(); window.open('${event.htmlLink}', '_blank')">
+          <i class="fas fa-external-link-alt"></i> Open
+        </button>`;
+      }
+      html += '</div>';
+
+      return `<div class="event-detail-panel show">${html}</div>`;
+    }
+
+    function formatGapDuration(minutes) {
+      if (minutes < 60) {
+        return `${Math.round(minutes)}m free`;
+      }
+      const hours = Math.floor(minutes / 60);
+      const mins = Math.round(minutes % 60);
+      if (mins === 0) {
+        return `${hours}h free`;
+      }
+      return `${hours}h ${mins}m free`;
     }
 
     function renderEvents(events) {
@@ -1562,8 +1227,8 @@
         container.innerHTML = `
           <div class="empty-state">
             <i class="far fa-calendar-check"></i>
-            <h3>No upcoming events</h3>
-            <p>Press ⌥N to quickly add a new event</p>
+            <h3>No events</h3>
+            <p>Press ⌥N to add one</p>
           </div>
         `;
         return;
@@ -1574,8 +1239,33 @@
       container.innerHTML = Object.entries(grouped).map(([date, dateEvents]) => {
         const heading = formatDateHeading(date);
         
-        const eventsHtml = dateEvents.map((event, index) => {
-          const { link: meetingLink, type: meetingType } = extractMeetingLink(event);
+        // Sort events by start time for gap calculation
+        const sortedEvents = [...dateEvents]
+          .filter(e => e.start.dateTime)
+          .sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime));
+        
+        let eventsHtml = '';
+        let lastEndTime = null;
+        
+        sortedEvents.forEach((event, index) => {
+          const eventStart = new Date(event.start.dateTime);
+          const eventEnd = new Date(event.end.dateTime);
+          
+          // Check for gap between events (only show if >= 15 minutes)
+          if (lastEndTime) {
+            const gapMinutes = (eventStart - lastEndTime) / 60000;
+            if (gapMinutes >= 15) {
+              eventsHtml += `
+                <div class="event-gap">
+                  <div class="event-gap-line"></div>
+                  <span class="event-gap-label">${formatGapDuration(gapMinutes)}</span>
+                  <div class="event-gap-line"></div>
+                </div>
+              `;
+            }
+          }
+          
+          const { link: meetingLink } = extractMeetingLink(event);
           const isCurrent = isCurrentEvent(event);
           const isUpcoming = isUpcomingEvent(event);
           
@@ -1584,80 +1274,44 @@
           else if (isUpcoming) rowClass += ' upcoming';
           
           const startTime = formatTime(event.start.dateTime || event.start.date);
-          const duration = formatDuration(
-            event.start.dateTime || event.start.date,
-            event.end.dateTime || event.end.date
-          );
-          
           const attendeeCount = event.attendees ? event.attendees.length : 0;
           
           let joinBtn = '';
           if (meetingLink) {
-            const btnClass = meetingType ? `join-button ${meetingType}` : 'join-button';
-            joinBtn = `
-              <button class="${btnClass}" onclick="openMeetingLink('${meetingLink}', '${event.id}')">
-                ${getMeetingIcon(meetingType)} Join
-              </button>
-            `;
+            joinBtn = `<button class="join-btn" onclick="event.stopPropagation(); openMeetingLink('${meetingLink}', '${event.id}')">
+              <i class="fas fa-video"></i> Join
+            </button>`;
           }
           
-          let html = `
-            <div class="${rowClass}">
-              <div class="event-time-block">
-                <span class="event-time">${startTime}</span>
-                <span class="event-duration">${duration}</span>
-              </div>
+          const isExpanded = expandedEventId === event.id;
+          
+          eventsHtml += `
+            <div class="${rowClass}" onclick="toggleEventDetail('${event.id}')">
+              <span class="event-time">${startTime}</span>
               <div class="event-content">
                 <div class="event-summary">${event.summary || 'Untitled'}</div>
                 <div class="event-meta">
-                  ${event.location ? `<span><i class="fas fa-map-marker-alt"></i> ${event.location.substring(0, 20)}${event.location.length > 20 ? '...' : ''}</span>` : ''}
-                  ${attendeeCount > 0 ? `<span class="event-attendees"><i class="fas fa-users"></i> <span class="attendee-count">${attendeeCount}</span></span>` : ''}
+                  ${attendeeCount > 0 ? `<span>${attendeeCount} attendees</span>` : ''}
                 </div>
               </div>
-              <div class="event-actions">
-                ${joinBtn}
-              </div>
+              <div class="event-actions">${joinBtn}</div>
             </div>
           `;
           
-          // Add time gap indicator
-          if (index < dateEvents.length - 1) {
-            const nextEvent = dateEvents[index + 1];
-            const endTime = new Date(event.end.dateTime || event.end.date);
-            const nextStart = new Date(nextEvent.start.dateTime || nextEvent.start.date);
-            const gap = (nextStart - endTime) / 60000;
-            
-            if (gap >= 1 && gap < 480) { // Show gaps from 1 min to 8 hours
-              let gapText;
-              if (gap < 60) {
-                gapText = `${Math.round(gap)}m break`;
-              } else {
-                const hours = Math.floor(gap / 60);
-                const mins = Math.round(gap % 60);
-                gapText = mins > 0 ? `${hours}h ${mins}m break` : `${hours}h break`;
-              }
-              html += `
-                <div class="time-gap">
-                  <div class="time-gap-line"></div>
-                  <span class="time-gap-text">${gapText}</span>
-                </div>
-              `;
-            }
+          if (isExpanded) {
+            eventsHtml += renderEventDetailPanel(event);
           }
           
-          return html;
-        }).join('');
+          // Update last end time (track the latest end time in case of overlapping events)
+          if (!lastEndTime || eventEnd > lastEndTime) {
+            lastEndTime = eventEnd;
+          }
+        });
 
         return `
           <div class="date-section">
             <div class="date-heading">
-              <span class="date-day">${heading.day}</span>
-              <div class="date-info">
-                <span class="date-weekday">${heading.weekday}</span>
-                <span class="date-month-year">${heading.monthYear}</span>
-              </div>
-              ${heading.isToday ? '<span class="date-today-badge">Today</span>' : ''}
-              ${heading.isTomorrow ? '<span class="date-today-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">Tomorrow</span>' : ''}
+              <span class="${heading.isToday ? 'date-today-badge' : ''}">${heading.text}</span>
             </div>
             ${eventsHtml}
           </div>
@@ -1672,14 +1326,11 @@
       const today = new Date();
       const isToday = timelineDate.toDateString() === today.toDateString();
       const isTomorrow = timelineDate.toDateString() === new Date(today.getTime() + 86400000).toDateString();
-      const isYesterday = timelineDate.toDateString() === new Date(today.getTime() - 86400000).toDateString();
       
       if (isToday) {
         dateLabel.textContent = 'Today';
       } else if (isTomorrow) {
         dateLabel.textContent = 'Tomorrow';
-      } else if (isYesterday) {
-        dateLabel.textContent = 'Yesterday';
       } else {
         dateLabel.textContent = timelineDate.toLocaleDateString('en-US', { 
           weekday: 'short', 
@@ -1689,65 +1340,160 @@
         });
       }
       
-      // Filter events for this day
+      // Filter events for this day (using the selected timezone)
       const dayEvents = cachedEvents.filter(event => {
-        const eventDate = new Date(event.start.dateTime || event.start.date);
-        return eventDate.toDateString() === timelineDate.toDateString();
+        const eventDateStr = new Date(event.start.dateTime || event.start.date)
+          .toLocaleDateString('en-US', { timeZone: currentTimezone });
+        const timelineDateStr = timelineDate.toLocaleDateString('en-US', { timeZone: currentTimezone });
+        return eventDateStr === timelineDateStr;
       });
       
-      // Build hour grid (6am to 10pm for reasonable view)
-      const startHour = 6;
-      const endHour = 22;
+      // Build hour grid (12am to 11pm - full 24 hours)
+      const startHour = 0;
+      const endHour = 23;
+      const hourHeight = 48;
       let html = '';
       
       for (let hour = startHour; hour <= endHour; hour++) {
-        const hourLabel = hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`;
+        let hourLabel;
+        if (hour === 0) hourLabel = '12a';
+        else if (hour < 12) hourLabel = `${hour}a`;
+        else if (hour === 12) hourLabel = '12p';
+        else hourLabel = `${hour - 12}p`;
+        
         html += `
           <div class="timeline-hour" data-hour="${hour}">
             <div class="timeline-hour-label">${hourLabel}</div>
-            <div class="timeline-hour-content">
-              <div class="timeline-half-line"></div>
-            </div>
+            <div class="timeline-hour-content"></div>
           </div>
         `;
       }
       
       grid.innerHTML = html;
       
-      // Calculate pixel position for a time
-      const hourHeight = 60; // matches CSS
+      // Helper to get hours in decimal from a Date object, respecting the selected timezone
+      const getDecimalHoursInTimezone = (date) => {
+        // Get the time string in the selected timezone
+        const timeStr = date.toLocaleTimeString('en-US', { 
+          timeZone: currentTimezone, 
+          hour: 'numeric', 
+          minute: 'numeric',
+          hour12: false 
+        });
+        // Parse "HH:MM" format
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours + minutes / 60;
+      };
+      
       const getPositionForTime = (date) => {
-        const hours = date.getHours() + date.getMinutes() / 60;
+        const hours = getDecimalHoursInTimezone(date);
         return (hours - startHour) * hourHeight;
       };
       
-      // Add events
-      dayEvents.forEach(event => {
-        const start = new Date(event.start.dateTime || event.start.date);
-        const end = new Date(event.end.dateTime || event.end.date);
+      // Sort events by start time
+      const sortedEvents = dayEvents
+        .filter(e => e.start.dateTime)
+        .sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime));
+      
+      // Calculate overlapping events and assign columns
+      const eventColumns = [];
+      sortedEvents.forEach((event, idx) => {
+        const start = new Date(event.start.dateTime);
+        const end = new Date(event.end.dateTime);
         
-        // Skip all-day events for now (they don't have dateTime)
-        if (!event.start.dateTime) return;
+        // Find which column this event can go in
+        let column = 0;
+        for (let col = 0; col < eventColumns.length; col++) {
+          const lastEventInCol = eventColumns[col];
+          const lastEnd = new Date(lastEventInCol.end.dateTime);
+          if (start >= lastEnd) {
+            column = col;
+            eventColumns[col] = event;
+            break;
+          }
+          column = col + 1;
+        }
+        if (column >= eventColumns.length) {
+          eventColumns.push(event);
+        }
+        event._column = column;
+      });
+      
+      const totalColumns = eventColumns.length || 1;
+      
+      // Find free slots and render them (only if single column)
+      if (sortedEvents.length > 0 && totalColumns === 1) {
+        // Create a reference time at startHour in the current timezone
+        let lastEndHours = startHour;
+        
+        sortedEvents.forEach(event => {
+          const eventStartHours = getDecimalHoursInTimezone(new Date(event.start.dateTime));
+          const eventEndHours = getDecimalHoursInTimezone(new Date(event.end.dateTime));
+          const gapHours = eventStartHours - lastEndHours;
+          
+          if (gapHours >= 0.5) { // 30 minutes
+            const top = (lastEndHours - startHour) * hourHeight;
+            const height = gapHours * hourHeight;
+            
+            if (height > 20 && top >= 0) {
+              const hours = Math.floor(gapHours);
+              const mins = Math.round((gapHours % 1) * 60);
+              const gapText = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''} free` : `${mins}m free`;
+              
+              const freeSlot = document.createElement('div');
+              freeSlot.className = 'timeline-free-slot';
+              freeSlot.style.top = `${top}px`;
+              freeSlot.style.height = `${height}px`;
+              freeSlot.textContent = gapText;
+              grid.appendChild(freeSlot);
+            }
+          }
+          
+          if (eventEndHours > lastEndHours) {
+            lastEndHours = eventEndHours;
+          }
+        });
+      }
+      
+      // Add events
+      sortedEvents.forEach(event => {
+        const start = new Date(event.start.dateTime);
+        const end = new Date(event.end.dateTime);
         
         const top = getPositionForTime(start);
         const bottom = getPositionForTime(end);
-        const height = Math.max(bottom - top, 24); // Minimum height
+        const height = Math.max(bottom - top, 24);
         
-        const { link: meetingLink } = extractMeetingLink(event);
-        const isShort = height < 40;
+        // Skip if completely outside visible range
+        if (top + height < 0) return;
+        if (top > (endHour - startHour + 1) * hourHeight) return;
         
         const startTime = formatTime(event.start.dateTime);
-        const endTime = formatTime(event.end.dateTime);
+        
+        // Calculate width and left position for overlapping events
+        const columnWidth = totalColumns > 1 ? (100 / totalColumns) : 100;
+        const leftPercent = (event._column || 0) * columnWidth;
         
         const eventEl = document.createElement('div');
-        eventEl.className = `timeline-event${isShort ? ' short' : ''}`;
-        eventEl.style.top = `${top}px`;
+        eventEl.className = 'timeline-event';
+        eventEl.style.top = `${Math.max(0, top)}px`;
         eventEl.style.height = `${height}px`;
+        
+        if (totalColumns > 1) {
+          eventEl.style.left = `calc(38px + ${leftPercent}%)`;
+          eventEl.style.width = `calc(${columnWidth}% - 4px)`;
+          eventEl.style.right = 'auto';
+        }
+        
         eventEl.innerHTML = `
           <div class="timeline-event-title">${event.summary || 'Untitled'}</div>
-          ${!isShort ? `<div class="timeline-event-time">${startTime} - ${endTime}</div>` : ''}
-          ${meetingLink ? `<button class="timeline-event-join" onclick="event.stopPropagation(); openMeetingLink('${meetingLink}', '${event.id}')">Join</button>` : ''}
+          ${height > 30 ? `<div class="timeline-event-time">${startTime}</div>` : ''}
         `;
+        
+        eventEl.addEventListener('click', () => {
+          expandedEventId = event.id;
+          switchView('agenda');
+        });
         
         grid.appendChild(eventEl);
       });
@@ -1757,55 +1503,25 @@
         const now = new Date();
         const nowPosition = getPositionForTime(now);
         
-        if (nowPosition >= 0 && nowPosition <= (endHour - startHour) * hourHeight) {
+        if (nowPosition >= 0 && nowPosition <= (endHour - startHour + 1) * hourHeight) {
           const nowLine = document.createElement('div');
           nowLine.className = 'timeline-now-line';
           nowLine.style.top = `${nowPosition}px`;
-          nowLine.innerHTML = `<span class="timeline-now-label">${formatTime(now.toISOString())}</span>`;
           grid.appendChild(nowLine);
-          
-          // Scroll to current time
-          setTimeout(() => {
-            const scrollContainer = document.querySelector('.timeline-scroll');
-            scrollContainer.scrollTop = Math.max(0, nowPosition - 100);
-          }, 100);
         }
-      }
-      
-      // Find and show free slots (gaps > 30 min)
-      if (dayEvents.length > 0) {
-        const sortedEvents = dayEvents
-          .filter(e => e.start.dateTime)
-          .sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime));
         
-        let lastEnd = new Date(timelineDate);
-        lastEnd.setHours(startHour, 0, 0, 0);
-        
-        sortedEvents.forEach(event => {
-          const eventStart = new Date(event.start.dateTime);
-          const gap = (eventStart - lastEnd) / 60000; // minutes
-          
-          if (gap >= 30) {
-            const top = getPositionForTime(lastEnd);
-            const height = getPositionForTime(eventStart) - top;
-            
-            if (height > 20) {
-              const freeSlot = document.createElement('div');
-              freeSlot.className = 'timeline-free-slot';
-              freeSlot.style.top = `${top}px`;
-              freeSlot.style.height = `${height}px`;
-              
-              const hours = Math.floor(gap / 60);
-              const mins = Math.round(gap % 60);
-              const gapText = hours > 0 ? `${hours}h ${mins}m free` : `${mins}m free`;
-              freeSlot.textContent = gapText;
-              
-              grid.appendChild(freeSlot);
-            }
-          }
-          
-          lastEnd = new Date(event.end.dateTime);
-        });
+        // Scroll to current time (or 7am if before that)
+        setTimeout(() => {
+          const scrollContainer = document.querySelector('.timeline-scroll');
+          const scrollTarget = Math.max(7 * hourHeight, nowPosition) - 40;
+          scrollContainer.scrollTop = Math.max(0, scrollTarget);
+        }, 100);
+      } else {
+        // For other days, scroll to 8am
+        setTimeout(() => {
+          const scrollContainer = document.querySelector('.timeline-scroll');
+          scrollContainer.scrollTop = 8 * hourHeight - 40;
+        }, 100);
       }
     }
 
@@ -1813,21 +1529,10 @@
     ipcRenderer.on('update-events', (event, events) => {
       cachedEvents = events;
       renderEvents(events);
-      renderMiniCalendar();
-      if (currentTab === 'timeline') {
+      if (currentView === 'timeline') {
         renderTimeline();
       }
     });
-
-    // Add spin animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
   </script>
 </body>
 </html>

@@ -1,26 +1,37 @@
 ![](VivCal.png)
 
-## How to use vivcal?
+## Quick Start
 
-1. Clone Vivcal locally (Assumes you have node and npm installed)
-```
+```bash
 git clone https://github.com/Portkey-AI/vivcal.git
 cd vivcal
-npm i
+npm install
+npm run setup   # Interactive setup wizard
+npm start
 ```
 
-2. Google Cloud Console Setup
+The setup wizard will guide you through configuring Google Calendar credentials and optional Portkey API key.
 
-- Go to the Google Cloud Console.
-- Create a new project.
-- Enable the Google Calendar API for your project.
-- Configure the OAuth consent screen.
-- Create OAuth 2.0 credentials (client ID and client secret).
-- Download the JSON file with your credentials and store it as `google-creds.json` in this folder.
-- Update the redirect url
+## Manual Setup
 
-It would look something like this
+### 1. Install Dependencies
+
+```bash
+npm install
 ```
+
+### 2. Google Calendar Credentials (Required)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or select existing)
+3. Enable the **Google Calendar API** and **People API**
+4. Go to **APIs & Services** → **Credentials**
+5. Click **Create Credentials** → **OAuth client ID**
+6. Select **Desktop app** as application type
+7. Download the JSON and save as `google-creds.json` in the project root
+
+The file should look like:
+```json
 {
   "installed": {
     "client_id": "...",
@@ -34,20 +45,41 @@ It would look something like this
 }
 ```
 
-3. Run Vivcal
+### 3. Portkey API Key (Optional)
+
+For AI-powered natural language event creation, create a `.env` file:
+
+```bash
+PORTKEY_API_KEY=your_key_here
+PORTKEY_PROMPT_ID=your_prompt_id  # Optional, defaults to pp-dateparse-d0b165
 ```
+
+Without this, VivCal uses chrono-node for local date parsing (works great for simple inputs like "meeting tomorrow at 3pm").
+
+### 4. Run VivCal
+
+```bash
 npm start
 ```
 
-## Packaging and running it on your local machine
+## Keyboard Shortcuts
 
-1. Package the application
-```
+| Shortcut | Action |
+|----------|--------|
+| `Alt+N` | Quick add event |
+| `Alt+C` | Toggle calendar panel |
+
+## Building for Distribution
+
+```bash
 npm run dist
 ```
 
-2. Run the application by going into the dist/mac-arm64 folder and clicking the VivCal.app/Electron.app file.
+The packaged app will be in `dist/mac-arm64/VivCal.app`.
 
-You should now have Vivcal running on your machine.
+## Logs
 
-Logs for this are available at `~/Library/Application\ Support/vivcal/logs/main.log`
+Application logs are stored at:
+```
+~/Library/Application Support/vivcal/logs/main.log
+```

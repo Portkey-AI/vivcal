@@ -241,6 +241,57 @@
       overflow: hidden;
       text-overflow: ellipsis;
       font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .event-summary-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Event color indicator (from Google Calendar) */
+    .event-color-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Response status indicator */
+    .event-status {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+
+    .event-status.needsAction {
+      background: rgba(251, 191, 36, 0.15);
+      color: #f59e0b;
+    }
+
+    .event-status.tentative {
+      background: rgba(139, 92, 246, 0.15);
+      color: #8b5cf6;
+    }
+
+    .event-status.declined {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
+    /* Declined events styling */
+    .event-row.declined {
+      opacity: 0.5;
+    }
+
+    .event-row.declined .event-summary-text {
+      text-decoration: line-through;
     }
 
     .event-meta {
@@ -490,6 +541,7 @@
       cursor: pointer;
       transition: all 0.1s ease;
       z-index: 1;
+      border: 1px solid var(--bg-primary);
     }
 
     .timeline-event:hover {
@@ -508,6 +560,30 @@
     .timeline-event-time {
       font-size: 9px;
       color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* Timeline event status styles */
+    .timeline-event.declined {
+      opacity: 0.4;
+      background: var(--text-muted);
+    }
+
+    .timeline-event.declined .timeline-event-title {
+      text-decoration: line-through;
+    }
+
+    .timeline-event.needs-action {
+      border-left: 3px solid #f59e0b;
+    }
+
+    .timeline-event.tentative {
+      border-left: 3px solid #8b5cf6;
+    }
+
+    .timeline-status {
+      font-weight: 700;
+      margin-right: 4px;
+      opacity: 0.8;
     }
 
     .timeline-now-line {
@@ -860,6 +936,7 @@
 
     let currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     let cachedEvents = [];
+    let calendarColors = null; // Google Calendar color definitions
     let currentView = 'agenda'; // 'agenda', 'timeline', 'settings'
     let timelineDate = new Date();
     let expandedEventId = null;
@@ -906,11 +983,13 @@
       // Timeline navigation
       document.getElementById('timeline-prev').addEventListener('click', () => {
         timelineDate.setDate(timelineDate.getDate() - 1);
+        fetchEventsForDateIfNeeded(timelineDate);
         renderTimeline();
       });
 
       document.getElementById('timeline-next').addEventListener('click', () => {
         timelineDate.setDate(timelineDate.getDate() + 1);
+        fetchEventsForDateIfNeeded(timelineDate);
         renderTimeline();
       });
 
@@ -1075,6 +1154,31 @@
       ipcRenderer.send('open-link', url, eventId);
     }
 
+    // Track which dates we've already requested (to avoid duplicate requests)
+    const requestedDates = new Set();
+
+    // Check if we have events for a date and request fetch if not
+    function fetchEventsForDateIfNeeded(date) {
+      const dateStr = date.toDateString();
+      
+      // Don't request if we've already asked for this date
+      if (requestedDates.has(dateStr)) {
+        return;
+      }
+      
+      // Check if we have any events for this date
+      const hasEventsForDate = cachedEvents.some(event => {
+        const eventDate = new Date(event.start.dateTime || event.start.date).toDateString();
+        return eventDate === dateStr;
+      });
+      
+      if (!hasEventsForDate) {
+        console.log('Requesting events for:', dateStr);
+        requestedDates.add(dateStr);
+        ipcRenderer.send('fetch-events-for-date', date.toISOString());
+      }
+    }
+
     function groupEventsByDate(events) {
       return events.reduce((grouped, event) => {
         const date = new Date(event.start.dateTime || event.start.date).toLocaleDateString('en-US', { timeZone: currentTimezone });
@@ -1123,6 +1227,19 @@
       const start = new Date(event.start.dateTime || event.start.date);
       const diff = (start - now) / 60000;
       return diff > 0 && diff <= 15;
+    }
+
+    // Get the current user's response status for an event
+    function getMyResponseStatus(event) {
+      if (!event.attendees) return 'accepted'; // No attendees = your own event
+      const me = event.attendees.find(att => att.self);
+      return me ? me.responseStatus : 'accepted';
+    }
+
+    // Get the event color from Google Calendar colorId
+    function getEventColor(event) {
+      if (!event.colorId || !calendarColors?.event) return null;
+      return calendarColors.event[event.colorId];
     }
 
     function extractNameFromEmail(email) {
@@ -1268,19 +1385,37 @@
           const { link: meetingLink } = extractMeetingLink(event);
           const isCurrent = isCurrentEvent(event);
           const isUpcoming = isUpcomingEvent(event);
+          const responseStatus = getMyResponseStatus(event);
+          const eventColor = getEventColor(event);
           
           let rowClass = 'event-row';
           if (isCurrent) rowClass += ' current';
           else if (isUpcoming) rowClass += ' upcoming';
+          if (responseStatus === 'declined') rowClass += ' declined';
           
           const startTime = formatTime(event.start.dateTime || event.start.date);
           const attendeeCount = event.attendees ? event.attendees.length : 0;
           
           let joinBtn = '';
-          if (meetingLink) {
+          if (meetingLink && responseStatus !== 'declined') {
             joinBtn = `<button class="join-btn" onclick="event.stopPropagation(); openMeetingLink('${meetingLink}', '${event.id}')">
               <i class="fas fa-video"></i> Join
             </button>`;
+          }
+          
+          // Build color dot if event has a custom color
+          const colorDot = eventColor 
+            ? `<span class="event-color-dot" style="background: ${eventColor.background}"></span>` 
+            : '';
+          
+          // Build status badge for non-accepted events
+          let statusBadge = '';
+          if (responseStatus === 'needsAction') {
+            statusBadge = '<span class="event-status needsAction">?</span>';
+          } else if (responseStatus === 'tentative') {
+            statusBadge = '<span class="event-status tentative">~</span>';
+          } else if (responseStatus === 'declined') {
+            statusBadge = '<span class="event-status declined">✕</span>';
           }
           
           const isExpanded = expandedEventId === event.id;
@@ -1289,7 +1424,7 @@
             <div class="${rowClass}" onclick="toggleEventDetail('${event.id}')">
               <span class="event-time">${startTime}</span>
               <div class="event-content">
-                <div class="event-summary">${event.summary || 'Untitled'}</div>
+                <div class="event-summary">${colorDot}<span class="event-summary-text">${event.summary || 'Untitled'}</span>${statusBadge}</div>
                 <div class="event-meta">
                   ${attendeeCount > 0 ? `<span>${attendeeCount} attendees</span>` : ''}
                 </div>
@@ -1469,6 +1604,8 @@
         if (top > (endHour - startHour + 1) * hourHeight) return;
         
         const startTime = formatTime(event.start.dateTime);
+        const responseStatus = getMyResponseStatus(event);
+        const eventColor = getEventColor(event);
         
         // Calculate width and left position for overlapping events
         const columnWidth = totalColumns > 1 ? (100 / totalColumns) : 100;
@@ -1476,8 +1613,22 @@
         
         const eventEl = document.createElement('div');
         eventEl.className = 'timeline-event';
+        if (responseStatus === 'declined') eventEl.classList.add('declined');
+        if (responseStatus === 'needsAction') eventEl.classList.add('needs-action');
+        if (responseStatus === 'tentative') eventEl.classList.add('tentative');
+        
         eventEl.style.top = `${Math.max(0, top)}px`;
         eventEl.style.height = `${height}px`;
+        
+        // Apply custom color if set
+        if (eventColor) {
+          eventEl.style.background = eventColor.background;
+          eventEl.style.borderLeftColor = eventColor.background;
+          // Use foreground color for text if provided
+          if (eventColor.foreground) {
+            eventEl.style.color = eventColor.foreground;
+          }
+        }
         
         if (totalColumns > 1) {
           eventEl.style.left = `calc(38px + ${leftPercent}%)`;
@@ -1485,8 +1636,13 @@
           eventEl.style.right = 'auto';
         }
         
+        // Status indicator for non-accepted events
+        let statusIcon = '';
+        if (responseStatus === 'needsAction') statusIcon = '<span class="timeline-status">?</span>';
+        else if (responseStatus === 'tentative') statusIcon = '<span class="timeline-status">~</span>';
+        
         eventEl.innerHTML = `
-          <div class="timeline-event-title">${event.summary || 'Untitled'}</div>
+          <div class="timeline-event-title">${statusIcon}${event.summary || 'Untitled'}</div>
           ${height > 30 ? `<div class="timeline-event-time">${startTime}</div>` : ''}
         `;
         
@@ -1532,6 +1688,10 @@
       if (currentView === 'timeline') {
         renderTimeline();
       }
+    });
+    
+    ipcRenderer.on('update-colors', (event, colors) => {
+      calendarColors = colors;
     });
   </script>
 </body>

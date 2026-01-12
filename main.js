@@ -86,11 +86,42 @@ const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // Event caching to reduce API calls and UI flicker
 let cachedEvents = [];
+let cachedColors = null; // Google Calendar color definitions
 let lastEventHash = null;
 let lastTrayTitle = null;
 let lastFetchTime = 0;
 const MIN_FETCH_INTERVAL = 5000; // Minimum 5 seconds between API calls
 let pendingUpdate = null; // Debounce webhook updates
+
+// Track which dates have been fetched (even if empty) to avoid refetching
+const fetchedDateRanges = new Set();
+
+function markDateFetched(date) {
+  fetchedDateRanges.add(new Date(date).toDateString());
+}
+
+function hasDateBeenFetched(date) {
+  return fetchedDateRanges.has(new Date(date).toDateString());
+}
+
+// Merge events from multiple fetches, avoiding duplicates
+function mergeEvents(existingEvents, newEvents) {
+  const eventMap = new Map();
+  
+  // Add existing events
+  existingEvents.forEach(e => eventMap.set(e.id, e));
+  
+  // Add/update with new events
+  newEvents.forEach(e => eventMap.set(e.id, e));
+  
+  // Return sorted by start time
+  return Array.from(eventMap.values())
+    .sort((a, b) => {
+      const aStart = new Date(a.start.dateTime || a.start.date);
+      const bStart = new Date(b.start.dateTime || b.start.date);
+      return aStart - bStart;
+    });
+}
 
 let webhookServer;
 let channelExpiration;
@@ -737,6 +768,18 @@ function createWindow() {
     // log.info('Window ready to show');
     mainWindow.show();
   });
+  
+  // Send colors when page loads
+  mainWindow.webContents.on('did-finish-load', async () => {
+    if (cachedColors) {
+      mainWindow.webContents.send('update-colors', cachedColors);
+    } else {
+      const colors = await fetchColors();
+      if (colors) {
+        mainWindow.webContents.send('update-colors', colors);
+      }
+    }
+  });
 }
 
 function authenticate() {
@@ -984,16 +1027,25 @@ async function fetchEvents(forceRefresh = false) {
   
   const calendar = calendarClient.calendar;
   try {
+    // Start from beginning of yesterday to include recent past events
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    
     const response = await calendar.events.list({
       calendarId: 'primary',
-      timeMin: (new Date()).toISOString(),
-      maxResults: 20,
+      timeMin: yesterday.toISOString(),
+      maxResults: 50,  // Increased from 20 to get more future events
       singleEvents: true,
       orderBy: 'startTime',
     });
     
     lastFetchTime = now;
     const events = response.data.items || [];
+    
+    // Mark today and yesterday as fetched
+    markDateFetched(new Date());
+    markDateFetched(yesterday);
     
     // Check if events actually changed
     const newHash = computeEventHash(events);
@@ -1004,11 +1056,89 @@ async function fetchEvents(forceRefresh = false) {
     
     lastEventHash = newHash;
     cachedEvents = events;
+    
+    // Prefetch tomorrow's events in the background if not already cached
+    prefetchNextDayIfNeeded();
+    
     return events;
     
   } catch (error) {
     console.error('The API returned an error: ' + error);
     return cachedEvents; // Return cached on error
+  }
+}
+
+// Fetch events for a specific date (used for timeline navigation)
+async function fetchEventsForDate(targetDate) {
+  const startOfDay = new Date(targetDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(targetDate);
+  endOfDay.setHours(23, 59, 59, 999);
+  
+  log.info(`Fetching events for ${startOfDay.toDateString()}`);
+  
+  const calendar = calendarClient.calendar;
+  try {
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startOfDay.toISOString(),
+      timeMax: endOfDay.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+    
+    const newEvents = response.data.items || [];
+    markDateFetched(targetDate);
+    
+    // Merge with existing cached events
+    cachedEvents = mergeEvents(cachedEvents, newEvents);
+    lastEventHash = computeEventHash(cachedEvents);
+    
+    log.info(`Fetched ${newEvents.length} events for ${startOfDay.toDateString()}, total cached: ${cachedEvents.length}`);
+    
+    // Prefetch the next day in background
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    prefetchIfMissing(nextDay);
+    
+    return cachedEvents;
+    
+  } catch (error) {
+    log.error('Error fetching events for date:', error);
+    return cachedEvents;
+  }
+}
+
+// Prefetch tomorrow's events if not already in cache
+async function prefetchNextDayIfNeeded() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  prefetchIfMissing(tomorrow);
+}
+
+// Prefetch events for a date if not already fetched
+function prefetchIfMissing(date) {
+  if (hasDateBeenFetched(date)) {
+    return; // Already fetched, skip
+  }
+  
+  // Check if we already have events for this date
+  const dateStr = new Date(date).toDateString();
+  const hasEventsForDate = cachedEvents.some(event => {
+    const eventDate = new Date(event.start.dateTime || event.start.date).toDateString();
+    return eventDate === dateStr;
+  });
+  
+  if (!hasEventsForDate) {
+    log.info(`Prefetching events for ${dateStr}...`);
+    // Fire and forget - don't block
+    fetchEventsForDate(date).catch(err => {
+      log.warn('Prefetch failed:', err.message);
+    });
+  } else {
+    // Mark as fetched even if we already have events (from initial fetch)
+    markDateFetched(date);
   }
 }
 
@@ -1131,6 +1261,20 @@ function scheduleUpdate() {
   }, 500); // Wait 500ms to batch rapid webhook updates
 }
 
+async function fetchColors() {
+  if (cachedColors) return cachedColors;
+  
+  try {
+    const response = await calendarClient.calendar.colors.get();
+    cachedColors = response.data;
+    log.info('Fetched calendar colors');
+    return cachedColors;
+  } catch (error) {
+    log.error('Error fetching colors:', error);
+    return null;
+  }
+}
+
 async function startApp() {
   try {
     // log.info('Checking for token at:', TOKEN_PATH);
@@ -1151,6 +1295,13 @@ async function startApp() {
     }
 
     await createWindow();
+    
+    // Fetch colors once at startup
+    const colors = await fetchColors();
+    if (colors && mainWindow?.webContents) {
+      mainWindow.webContents.send('update-colors', colors);
+    }
+    
     await updateTrayTitle(true); // Force initial fetch
 
     // Poll every 60 seconds as fallback (webhooks handle real-time updates)
@@ -1334,6 +1485,19 @@ app.on('ready', async () => {
       selectedTimezone = timezone;
       log.info('Timezone changed to:', timezone);
       updateTrayTitle();
+    });
+
+    // Handle request to fetch events for a specific date (from timeline navigation)
+    ipcMain.on('fetch-events-for-date', async (event, dateISOString) => {
+      const targetDate = new Date(dateISOString);
+      log.info('Received fetch-events-for-date request for:', targetDate.toDateString());
+      
+      await fetchEventsForDate(targetDate);
+      
+      // Send updated events to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-events', cachedEvents);
+      }
     });
 
   } catch (err) {

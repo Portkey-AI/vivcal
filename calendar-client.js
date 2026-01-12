@@ -13,6 +13,9 @@ class CalendarClient {
             },
             channels: {
                 stop: this.stopChannel.bind(this)
+            },
+            colors: {
+                get: this.getColors.bind(this)
             }
         };
         this.auth = {
@@ -78,10 +81,15 @@ class CalendarClient {
         const searchParams = new URLSearchParams({
             calendarId: params.calendarId || 'primary',
             timeMin: params.timeMin || new Date().toISOString(),
-            maxResults: params.maxResults || '20',
+            maxResults: params.maxResults || '50',
             singleEvents: params.singleEvents || 'true',
             orderBy: params.orderBy || 'startTime',
         });
+
+        // Add timeMax if provided (for date-specific fetches)
+        if (params.timeMax) {
+            searchParams.append('timeMax', params.timeMax);
+        }
 
         const response = await this.makeRequest(`/calendars/primary/events?${searchParams.toString()}`);
         return { data: response }; // Match googleapis response format
@@ -106,6 +114,11 @@ class CalendarClient {
             },
             body: JSON.stringify(requestBody)
         });
+    }
+
+    async getColors() {
+        const response = await this.makeRequest('/colors');
+        return { data: response };
     }
 
     generateAuthUrl(options) {

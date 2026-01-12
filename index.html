@@ -940,6 +940,7 @@
     let currentView = 'agenda'; // 'agenda', 'timeline', 'settings'
     let timelineDate = new Date();
     let expandedEventId = null;
+    let shouldScrollToNow = true; // Flag to control auto-scroll (only on initial load or view switch)
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
@@ -1043,6 +1044,9 @@
         settingsBtn.classList.add('active');
       } else {
         eventsContainer.style.display = 'block';
+        // Scroll to current event when switching back to agenda view
+        shouldScrollToNow = true;
+        scrollToCurrentEvent();
       }
     }
 
@@ -1452,6 +1456,33 @@
           </div>
         `;
       }).join('');
+      
+      // Scroll to current or upcoming event (only on initial load or view switch)
+      if (shouldScrollToNow) {
+        scrollToCurrentEvent();
+        shouldScrollToNow = false;
+      }
+    }
+    
+    function scrollToCurrentEvent() {
+      setTimeout(() => {
+        const container = document.getElementById('events-container');
+        // First try to find a current event, then an upcoming event
+        const targetEvent = container.querySelector('.event-row.current') || 
+                           container.querySelector('.event-row.upcoming');
+        
+        if (targetEvent) {
+          // Scroll the event into view with some padding at the top
+          const containerRect = container.getBoundingClientRect();
+          const eventRect = targetEvent.getBoundingClientRect();
+          const scrollOffset = eventRect.top - containerRect.top - 40; // 40px padding from top
+          
+          container.scrollTo({
+            top: container.scrollTop + scrollOffset,
+            behavior: 'smooth'
+          });
+        }
+      }, 50); // Small delay to ensure DOM is rendered
     }
 
     function renderTimeline() {

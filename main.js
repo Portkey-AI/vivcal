@@ -1150,13 +1150,24 @@ async function getNextEvent(auth) {
   }
 
   const now = new Date();
-  const currentEvent = events[0];
-  const nextEvent = events.length > 1 ? events[1] : null;
+  
+  // Filter to only events that haven't ended yet (current or future)
+  const relevantEvents = events.filter(event => {
+    const endTime = new Date(event.end.dateTime || event.end.date);
+    return endTime > now;
+  });
+  
+  if (relevantEvents.length === 0) {
+    return { event: null, nextEvent: null, events: events };
+  }
+  
+  const currentEvent = relevantEvents[0];
+  const nextEvent = relevantEvents.length > 1 ? relevantEvents[1] : null;
 
   return {
     event: currentEvent,
     nextEvent: nextEvent && new Date(currentEvent.end.dateTime) > now ? nextEvent : null,
-    events: events
+    events: events  // Return all events for the UI
   };
 }
 

@@ -1467,15 +1467,37 @@
     function scrollToCurrentEvent() {
       setTimeout(() => {
         const container = document.getElementById('events-container');
-        // First try to find a current event, then an upcoming event
-        const targetEvent = container.querySelector('.event-row.current') || 
-                           container.querySelector('.event-row.upcoming');
+        const now = new Date();
         
-        if (targetEvent) {
-          // Scroll the event into view with some padding at the top
+        // Find the first event that hasn't ended yet (current or future)
+        let targetElement = null;
+        
+        for (const event of cachedEvents) {
+          const endTime = new Date(event.end.dateTime || event.end.date);
+          if (endTime > now) {
+            // This event hasn't ended - find its DOM element
+            // Look for the event row by matching onclick handler with event id
+            const eventRows = container.querySelectorAll('.event-row');
+            for (const row of eventRows) {
+              if (row.getAttribute('onclick')?.includes(event.id)) {
+                targetElement = row;
+                break;
+              }
+            }
+            if (targetElement) break;
+          }
+        }
+        
+        // Fallback: first event row
+        if (!targetElement) {
+          targetElement = container.querySelector('.event-row');
+        }
+        
+        if (targetElement) {
+          // Scroll the element into view with some padding at the top
           const containerRect = container.getBoundingClientRect();
-          const eventRect = targetEvent.getBoundingClientRect();
-          const scrollOffset = eventRect.top - containerRect.top - 40; // 40px padding from top
+          const targetRect = targetElement.getBoundingClientRect();
+          const scrollOffset = targetRect.top - containerRect.top - 20; // 20px padding from top
           
           container.scrollTo({
             top: container.scrollTop + scrollOffset,
@@ -1720,9 +1742,16 @@
         renderTimeline();
       }
     });
-    
+
     ipcRenderer.on('update-colors', (event, colors) => {
       calendarColors = colors;
+    });
+
+    // When window is shown via tray click, scroll to current event
+    ipcRenderer.on('window-shown', () => {
+      if (currentView === 'agenda') {
+        scrollToCurrentEvent();
+      }
     });
   </script>
 </body>

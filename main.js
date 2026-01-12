@@ -1344,6 +1344,8 @@ async function startApp() {
           // log.info('Setting position to:', position);
           mainWindow.setPosition(position.x, position.y, false);
           mainWindow.show();
+          // Tell renderer to scroll to current event
+          mainWindow.webContents.send('window-shown');
         }
       } catch (error) {
         log.error('Error in tray click handler:', error);
